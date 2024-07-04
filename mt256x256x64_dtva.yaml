@@ -1,0 +1,90 @@
+GlobalParameters:
+  DataInitTypeAB: 12
+  NumElementsToValidate: 0 # -1: all, 0: none
+  KernelTime: True
+  NewClient: 2
+  BoundsCheck: False
+  PrintSolutionRejectionReason: True
+  PrintWinnersOnly: True
+  NumWarmups: 1000
+  EnqueuesPerSync: 3000
+  ValidationMaxToPrint: 4      # maximum number of mismatches to print
+  ValidationPrintValids: False # print matches too
+  DataInitValueActivationArgs: [0.5, -1]
+  PruneSparseMode: 0
+  MinKForGSU: 1
+  AsmDebug: True
+  RotatingBufferSize: 512
+  Device: 0
+  MergeFiles: False
+
+BenchmarkProblems:
+  ########################################
+  # NN - standard
+  ########################################
+  -
+    - # ProblemType
+      OperationType: GEMM
+      DataType: B
+      DestDataType: B
+      ComputeDataType: S
+      HighPrecisionAccumulate: True # valid when DataType is half, bf16, Int8x4, Int8, fp8, bf8
+      TransposeA: True
+      TransposeB: False
+      UseBeta: True
+      Batched: True
+      Activation: False
+      ActivationHPA: False 
+
+    - # BenchmarkProblemSizeGroup - Standard - All problem
+      InitialSolutionParameters:
+      BenchmarkCommonParameters:
+        - KernelLanguage: ["Assembly"]
+      ForkParameters:
+        - MatrixInstruction:
+          - [16, 16, 16, 1, 1, 4, 16, 4,1 ]  #64x64
+        - AssertFree0ElementMultiple: [8]
+        - AssertFree1ElementMultiple: [8] #8
+        - GlobalReadVectorWidthA: [8] #4,16
+        - GlobalReadVectorWidthB: [-1] #4
+        - PrefetchGlobalRead: [2]
+        - PrefetchLocalRead: [1]
+        - ClusterLocalRead: [1]
+        - NumElementsPerBatchStore: [0]
+        - DepthU: [64] # 32,64,256
+        - VectorWidthA: [-1]  #[-1]
+        - VectorWidthB: [-1]
+        - WaveSeparateGlobalReadA: [0] #1,2
+        - WaveSeparateGlobalReadB: [0] #1,2
+        - MIArchVgpr: [0]
+        - PreloadKernArgs: [1]
+        - LocalWritePerMfma: [-1]
+        - StaggerU: [8] #4
+        - StaggerUMapping: [1] # 2
+        - StaggerUStride: [128] #256,512
+        - WorkGroupMapping: [8] #1
+        - LocalReadVectorWidth: [8] #-1,4
+        - ScheduleIterAlg: [3]
+        - ExpandPointerSwap: [0]
+        - TransposeLDS: [1] #2
+        - LdsBlockSizePerPadA: [-1] #-1
+        - LdsBlockSizePerPadB: [-1] #-1
+        - StorePriorityOpt: [0]
+        - VectorStore: [-1]
+        - StoreSyncOpt: [0]
+        - LdsPadA: [-1] #-1
+        - LdsPadB: [-1] #-1
+        - 1LDSBuffer: [1] #-1
+          #- GroupLoadStore: [False, True]
+        - GlobalSplitU: [1]
+        - GlobalSplitUAlgorithm: ["MultipleBuffer"]
+        - SourceSwap: [1]
+      BenchmarkJoinParameters:
+      BenchmarkFinalParameters:
+        - ProblemSizes:
+          - Exact: [4864, 4096,  1, 8192]
+
+LibraryLogic:
+    ScheduleName: "aquavanjaram"
+    DeviceNames: ["Device 0049", "Device 0050"]
+    ArchitectureName: "gfx942"

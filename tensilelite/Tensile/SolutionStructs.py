@@ -2392,7 +2392,7 @@ class Solution(collections.abc.Mapping):
       padInterval = LdsBlockSizePerPadA
       if padInterval != 0:
         ldsNumBytesA = int((state["_DepthUA"] * state["MacroTileA"] * bpeA) / padInterval * (padInterval + ldsPadA * bpeA))
-      ldsNumBytesAlignedA = roundUpToNearestMultiple(ldsNumBytesA, ldsAlign)
+      ldsNumBytesAlignedA = 0 #roundUpToNearestMultiple(ldsNumBytesA, ldsAlign)
 
       if state["UnrollMajorLDSB"]:
         ldsNumBytesB = (state["_DepthUB"] + ldsPadB) * state["MacroTileB"] * bpeB
@@ -3127,8 +3127,6 @@ class Solution(collections.abc.Mapping):
         reject(state, "UnrollMajorLDS Supports only in EnableMatrixInstruction=1")
 
     ldsNumBytesA, ldsNumBytesAlignedA, ldsNumBytesB, ldsNumBytesAlignedB, ldsNumBytesMetadata, ldsNumBytesAlignedMetadata = calcLdsNumBytes(state["LdsPadA"], state["LdsBlockSizePerPadA"], state["LdsPadB"], state["LdsBlockSizePerPadB"])
-
-
 
     # todo, can the alignment be a power of 2?
     state["LdsOffsetA"] = 0
