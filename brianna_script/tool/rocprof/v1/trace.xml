@@ -1,0 +1,16 @@
+<metric
+#range of dispatches
+#range="0:1"
+# list of gpu indices "0,1,2,3"
+gpu_index="0,1,2,3"
+# list of kernel name match sub-strings
+# kernel="Simple1,Conv1,SimpleConvolution"
+></metric>
+<trace name=SQTT >
+<parameters
+SE_MASK=0x1
+MASK=0x0F00
+TOKEN_MASK=0x344B
+TOKEN_MASK2=0xFFFFFFFF
+></parameters>
+</trace>

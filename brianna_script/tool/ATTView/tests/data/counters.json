@@ -1,0 +1,1 @@
+{"counters": ["busy_cu_cycles", "wave_cycles", "wave_ready", "wait_any", "insts_vmem_wr", "insts_vmem_rd", "insts_valu", "insts_salu"]}

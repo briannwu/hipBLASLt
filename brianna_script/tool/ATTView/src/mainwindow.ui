@@ -1,0 +1,848 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1600</width>
+    <height>900</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MI TraceView</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QGridLayout" name="gridLayout_2">
+    <item row="0" column="0">
+     <widget class="QSplitter" name="splitter_2">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+      <widget class="QWidget" name="verticalLayoutWidget">
+       <layout class="QVBoxLayout" name="verticalLayout_5" stretch="0,0,0,0,0">
+        <property name="spacing">
+         <number>6</number>
+        </property>
+        <property name="sizeConstraint">
+         <enum>QLayout::SetMinimumSize</enum>
+        </property>
+        <item>
+         <widget class="QFrame" name="frame_2">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>64</height>
+           </size>
+          </property>
+          <property name="frameShape">
+           <enum>QFrame::StyledPanel</enum>
+          </property>
+          <property name="frameShadow">
+           <enum>QFrame::Raised</enum>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_2">
+           <item>
+            <layout class="QVBoxLayout" name="verticalLayout_4" stretch="0,0,0,0">
+             <item>
+              <widget class="QLabel" name="label_4">
+               <property name="text">
+                <string>ATT UI Path:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLineEdit" name="ConfigNameEdit">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>200</width>
+                 <height>32</height>
+                </size>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="label_5">
+               <property name="text">
+                <string>Root project path:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLineEdit" name="ProjectFEdit"/>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,0,0">
+          <property name="spacing">
+           <number>1</number>
+          </property>
+          <item>
+           <layout class="QVBoxLayout" name="SESelLay">
+            <property name="spacing">
+             <number>1</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="ShaderSel">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>56</width>
+                <height>16777215</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Shader</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QVBoxLayout" name="SMSelLay">
+            <property name="spacing">
+             <number>1</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="SimdSel">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>44</width>
+                <height>16777215</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>SIMD</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QVBoxLayout" name="WSLSelLay">
+            <property name="spacing">
+             <number>1</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="WSLSel">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>44</width>
+                <height>16777215</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Slot</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QVBoxLayout" name="WIDSelLay">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="WIDSel">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>44</width>
+                <height>16777215</height>
+               </size>
+              </property>
+              <property name="toolTip">
+               <string>Wave ID: Not available</string>
+              </property>
+              <property name="text">
+               <string>WID</string>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QFrame" name="frame_3">
+          <property name="frameShape">
+           <enum>QFrame::StyledPanel</enum>
+          </property>
+          <property name="frameShadow">
+           <enum>QFrame::Raised</enum>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_6">
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_5">
+             <item>
+              <widget class="QLabel" name="label_6">
+               <property name="toolTip">
+                <string>Lower value zooms out</string>
+               </property>
+               <property name="text">
+                <string>WaveView zoom:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QSpinBox" name="waveSpin">
+               <property name="maximum">
+                <number>10</number>
+               </property>
+               <property name="value">
+                <number>10</number>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QFrame" name="frame_4">
+          <property name="frameShape">
+           <enum>QFrame::StyledPanel</enum>
+          </property>
+          <property name="frameShadow">
+           <enum>QFrame::Raised</enum>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_11">
+           <item>
+            <layout class="QVBoxLayout" name="verticalLayout_8">
+             <item>
+              <widget class="QLabel" name="waveview_range_label">
+               <property name="toolTip">
+                <string>Units of 1k clocks. Granularity of ~4k clocks</string>
+               </property>
+               <property name="text">
+                <string>WaveView clock range:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_6">
+               <property name="spacing">
+                <number>1</number>
+               </property>
+               <item>
+                <widget class="QLineEdit" name="wview_range_min">
+                 <property name="inputMethodHints">
+                  <set>Qt::ImhNone</set>
+                 </property>
+                 <property name="text">
+                  <string>0</string>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="label_7">
+                 <property name="text">
+                  <string>.000</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_7">
+               <property name="spacing">
+                <number>1</number>
+               </property>
+               <item>
+                <widget class="QLineEdit" name="wview_range_max">
+                 <property name="inputMethodHints">
+                  <set>Qt::ImhNone</set>
+                 </property>
+                 <property name="text">
+                  <string>0</string>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="label_8">
+                 <property name="text">
+                  <string>.000</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <spacer name="verticalSpacer">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QSplitter" name="splitter">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+         <horstretch>10</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
+       </property>
+       <widget class="QTabWidget" name="tabWidget">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+          <horstretch>10</horstretch>
+          <verstretch>1</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <property name="baseSize">
+         <size>
+          <width>0</width>
+          <height>300</height>
+         </size>
+        </property>
+        <property name="currentIndex">
+         <number>4</number>
+        </property>
+        <widget class="QWidget" name="wv_counters_tab">
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <attribute name="title">
+          <string>Counters</string>
+         </attribute>
+        </widget>
+        <widget class="QWidget" name="wv_states_tab">
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <attribute name="title">
+          <string>Wave States</string>
+         </attribute>
+        </widget>
+        <widget class="QWidget" name="hotspot_tab">
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <attribute name="title">
+          <string>Hotspot</string>
+         </attribute>
+         <layout class="QHBoxLayout" name="horizontalLayout_4">
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_3"/>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="occupancy_tab">
+         <attribute name="title">
+          <string>Occupancy</string>
+         </attribute>
+        </widget>
+        <widget class="QWidget" name="dispatch_tab">
+         <attribute name="title">
+          <string>Kernel Dispatches</string>
+         </attribute>
+        </widget>
+       </widget>
+       <widget class="QTabWidget" name="tabWidget_2">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+          <horstretch>10</horstretch>
+          <verstretch>1</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <property name="currentIndex">
+         <number>0</number>
+        </property>
+        <widget class="QWidget" name="code_tab">
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <attribute name="title">
+          <string>Instructions</string>
+         </attribute>
+        </widget>
+        <widget class="QWidget" name="cuwaves_tab">
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <attribute name="title">
+          <string>Compute Unit</string>
+         </attribute>
+        </widget>
+        <widget class="QWidget" name="tab_9">
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <attribute name="title">
+          <string>Global View</string>
+         </attribute>
+        </widget>
+        <widget class="QWidget" name="source_tab">
+         <attribute name="title">
+          <string>Source file</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="verticalLayout_3">
+          <item>
+           <widget class="QScrollArea" name="source_scrollArea">
+            <property name="widgetResizable">
+             <bool>true</bool>
+            </property>
+            <widget class="QWidget" name="sourcecode_contents">
+             <property name="geometry">
+              <rect>
+               <x>0</x>
+               <y>0</y>
+               <width>1079</width>
+               <height>529</height>
+              </rect>
+             </property>
+            </widget>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </widget>
+      </widget>
+      <widget class="QWidget" name="verticalLayoutWidget_2">
+       <layout class="QVBoxLayout" name="verticalLayout_7" stretch="0">
+        <property name="sizeConstraint">
+         <enum>QLayout::SetMinimumSize</enum>
+        </property>
+        <item>
+         <layout class="QVBoxLayout" name="verticalLayout">
+          <property name="spacing">
+           <number>6</number>
+          </property>
+          <item>
+           <widget class="QFrame" name="frame">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>16</height>
+             </size>
+            </property>
+            <property name="frameShape">
+             <enum>QFrame::StyledPanel</enum>
+            </property>
+            <property name="frameShadow">
+             <enum>QFrame::Raised</enum>
+            </property>
+            <layout class="QVBoxLayout" name="verticalLayout_9">
+             <item>
+              <widget class="QLabel" name="label_3">
+               <property name="text">
+                <string>Graph Options:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <layout class="QVBoxLayout" name="verticalLayout_10">
+               <item>
+                <widget class="QCheckBox" name="lod_checkBox">
+                 <property name="text">
+                  <string>Level of detail</string>
+                 </property>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="label">
+                 <property name="text">
+                  <string>Display counters</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QToolButton" name="toolButton">
+                 <property name="text">
+                  <string>...</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_2">
+            <property name="toolTip">
+             <string extracomment="Displays current under the mouse pointer. For waves, display count and percentage of each wave state. For counters, display value and total shown on screen."/>
+            </property>
+            <property name="text">
+             <string>Counter values:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QTableWidget" name="graph_info_table">
+            <property name="rowCount">
+             <number>16</number>
+            </property>
+            <property name="columnCount">
+             <number>3</number>
+            </property>
+            <attribute name="horizontalHeaderCascadingSectionResizes">
+             <bool>true</bool>
+            </attribute>
+            <attribute name="horizontalHeaderMinimumSectionSize">
+             <number>50</number>
+            </attribute>
+            <attribute name="verticalHeaderVisible">
+             <bool>false</bool>
+            </attribute>
+            <attribute name="verticalHeaderHighlightSections">
+             <bool>true</bool>
+            </attribute>
+            <row/>
+            <row/>
+            <row/>
+            <row/>
+            <row/>
+            <row/>
+            <row/>
+            <row/>
+            <row/>
+            <row/>
+            <row/>
+            <row/>
+            <row/>
+            <row/>
+            <row/>
+            <row/>
+            <column/>
+            <column/>
+            <column/>
+           </widget>
+          </item>
+          <item>
+           <widget class="QTableWidget" name="wave_info_table">
+            <property name="rowCount">
+             <number>8</number>
+            </property>
+            <property name="columnCount">
+             <number>3</number>
+            </property>
+            <attribute name="horizontalHeaderCascadingSectionResizes">
+             <bool>true</bool>
+            </attribute>
+            <attribute name="horizontalHeaderMinimumSectionSize">
+             <number>30</number>
+            </attribute>
+            <attribute name="verticalHeaderVisible">
+             <bool>false</bool>
+            </attribute>
+            <row/>
+            <row/>
+            <row/>
+            <row/>
+            <row/>
+            <row/>
+            <row/>
+            <row/>
+            <column/>
+            <column/>
+            <column/>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+    <item row="0" column="2">
+     <layout class="QHBoxLayout" name="horizontalLayout_2"/>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1600</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuRun_Analysis">
+    <property name="title">
+     <string>Run</string>
+    </property>
+    <addaction name="actionATT_Collect"/>
+    <addaction name="actionATT_Parser"/>
+    <addaction name="actionSPM_Collection"/>
+   </widget>
+   <widget class="QMenu" name="menuImport_2">
+    <property name="title">
+     <string>Import</string>
+    </property>
+    <addaction name="actionJsons_folder"/>
+    <addaction name="actionProject_folder"/>
+    <addaction name="actionATT_Input_file_3"/>
+   </widget>
+   <widget class="QMenu" name="menuExport_2">
+    <property name="title">
+     <string>Export</string>
+    </property>
+    <addaction name="actionAnnotated_Instructions"/>
+    <addaction name="actionAnnotated_Source_2"/>
+    <addaction name="actionATT_Input_file_2"/>
+   </widget>
+   <widget class="QMenu" name="menuEdit">
+    <property name="title">
+     <string>Edit</string>
+    </property>
+    <addaction name="actionATT_Input_file_4"/>
+    <addaction name="actionHotOptions"/>
+    <addaction name="actionCounters_filter"/>
+   </widget>
+   <addaction name="menuRun_Analysis"/>
+   <addaction name="menuImport_2"/>
+   <addaction name="menuExport_2"/>
+   <addaction name="menuEdit"/>
+  </widget>
+  <action name="actionOpen_parsed">
+   <property name="text">
+    <string>Open Parsed Data</string>
+   </property>
+  </action>
+  <action name="actionInstructions">
+   <property name="text">
+    <string>Annotated Instructions</string>
+   </property>
+  </action>
+  <action name="actionAnnotated_Source">
+   <property name="text">
+    <string>Annotated Source</string>
+   </property>
+  </action>
+  <action name="actionChart_as_png">
+   <property name="text">
+    <string>Chart as png</string>
+   </property>
+  </action>
+  <action name="actionRerun">
+   <property name="text">
+    <string>Rerun</string>
+   </property>
+  </action>
+  <action name="actionATT_Collect">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>ATT Collection</string>
+   </property>
+  </action>
+  <action name="actionSPM_Collection">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>SPM Collection</string>
+   </property>
+  </action>
+  <action name="actionATT_SPM">
+   <property name="text">
+    <string>ATT + SPM</string>
+   </property>
+  </action>
+  <action name="actionSource_folder">
+   <property name="text">
+    <string>Project folder</string>
+   </property>
+  </action>
+  <action name="action">
+   <property name="text">
+    <string>Custom JSON</string>
+   </property>
+  </action>
+  <action name="actionATT_input_file">
+   <property name="text">
+    <string>Collection params</string>
+   </property>
+  </action>
+  <action name="actionATT_Input_file">
+   <property name="text">
+    <string>Collection params</string>
+   </property>
+  </action>
+  <action name="actionCollection_parameters">
+   <property name="text">
+    <string>Collection parameters</string>
+   </property>
+  </action>
+  <action name="actionPre_analysed_data">
+   <property name="text">
+    <string>Pre-analysed data</string>
+   </property>
+  </action>
+  <action name="actionATT_Parser">
+   <property name="text">
+    <string>ATT Parser</string>
+   </property>
+  </action>
+  <action name="actionAnnotated_Instructions">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Annotated Instructions</string>
+   </property>
+  </action>
+  <action name="actionAnnotated_Source_2">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Annotated Source</string>
+   </property>
+  </action>
+  <action name="actionATT_Input_file_2">
+   <property name="text">
+    <string>ATT Input file</string>
+   </property>
+  </action>
+  <action name="actionFrom_network">
+   <property name="text">
+    <string>Att from network</string>
+   </property>
+  </action>
+  <action name="actionJsons_folder">
+   <property name="text">
+    <string>ATT Parsed</string>
+   </property>
+  </action>
+  <action name="actionProject_folder">
+   <property name="text">
+    <string>Project Folder</string>
+   </property>
+  </action>
+  <action name="actionATT_Input_file_3">
+   <property name="text">
+    <string>ATT Input file</string>
+   </property>
+  </action>
+  <action name="actionATT_Input_file_4">
+   <property name="text">
+    <string>ATT Input file</string>
+   </property>
+  </action>
+  <action name="actionHotOptions">
+   <property name="text">
+    <string>Hotspot Options</string>
+   </property>
+  </action>
+  <action name="actionWaveView_detail">
+   <property name="text">
+    <string>WaveView detail</string>
+   </property>
+  </action>
+  <action name="actionWaveView_detail_level">
+   <property name="text">
+    <string>WaveView detail level</string>
+   </property>
+  </action>
+  <action name="actionCounters_filter">
+   <property name="text">
+    <string>Counters shown</string>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
