@@ -2369,19 +2369,25 @@ class KernelWriter(metaclass=abc.ABCMeta):
         module.addComment1("remove stagger offsets for tail loop")
         module.add(self.removeStagger(kernel, tensorParametersA))
         module.add(self.removeStagger(kernel, tensorParametersB))
-
+      print("tail loop")
       module.addComment1("Update M0 for DTLDS")
       moduleTmp = self.directToLdsM0Update(kernel, 1, tensorParametersA)
       module.add(replaceHolder(moduleTmp, 0))
       module.addComment1("global read A")
-      module.add(self.globalReadDo(kernel, 2, tensorParametersA))
+      module.add(self.globalReadDo(kernel, 0, tensorParametersA))
+
       module.addComment1("Update M0 for DTLDS")
       moduleTmp = self.directToLdsM0Update(kernel, 1, tensorParametersB)
       module.add(replaceHolder(moduleTmp, 0))
       module.addComment1("global read B")
-      module.add(self.globalReadDo(kernel, 2, tensorParametersB))
+      module.add(self.globalReadDo(kernel, 0, tensorParametersB))
+
+      module.add(self.test_instruction(kernel, tensorParametersA, tensorParametersB))
+
       module.add(self._wait(kernel, tensorParametersA, tensorParametersB, 0, -1, -1, "2wait for global read"))
       module.add(self._syncThreads(kernel))
+
+      module.addComment2("COMMENT")
 
       # the following read/write addresses could be modified in recalcLocal(Read|Write)Addresses due to policy change
       self.oriLraA = None # back up original local read address vgpr
@@ -3102,6 +3108,12 @@ class KernelWriter(metaclass=abc.ABCMeta):
     self.initLocalWriteMemoryInstruction(instructions, kernel, tensorParametersB, self.states.bpr)
     self.initLocalReadMemoryInstruction(instructions, kernel, tensorParametersA, self.states.bpr)
     self.initLocalReadMemoryInstruction(instructions, kernel, tensorParametersB, self.states.bpr)
+    print("self.states.bpr = ", self.states.bpr)
+    print("globalReadInstructionA.totalWidth = ", tensorParametersA["globalReadInstruction"].totalWidth)
+    print("globalReadInstructionB.totalWidth = ", tensorParametersB["globalReadInstruction"].totalWidth)
+    print("A bpeGR = ", tensorParametersA["bpeGR"])
+    print("B bpeGR = ", tensorParametersB["bpeGR"])
+    print("")
 
     if tensorParametersM is not None:
       self.initGlobalReadMemoryInstruction(instructions, tensorParametersM, self.states.bpr)
@@ -3178,6 +3190,11 @@ class KernelWriter(metaclass=abc.ABCMeta):
 
     if not kernel["DirectToLdsA"] or self.do["KeepDirectToLdsAlloc"]:
       bpeMax = tensorParametersA["bpeDS"] if kernel["ConvertAfterDS"] else max(tensorParametersA["bpeGR"], tensorParametersA["bpe"])
+      print("NumLoadsPerpendicularA = ", kernel["NumLoadsPerpendicularA"])
+      print("NumLoadsCoalescedA = ", kernel["NumLoadsCoalescedA"])
+      print("GlobalReadVectorWidthA = ", kernel["GlobalReadVectorWidthA"])
+      print("bpeMax = ", bpeMax)
+      print("self.states.bpr = ", self.states.bpr)
       self.states.a.numVgprG2L = roundUp((kernel["NumLoadsCoalescedA"] * kernel["NumLoadsPerpendicularA"] * \
         kernel["GlobalReadVectorWidthA"] * bpeMax) / (float)(self.states.bpr))
       numVgprG2Local = roundUp((kernel["NumLoadsCoalescedA"] * kernel["NumLoadsPerpendicularA"] * \
