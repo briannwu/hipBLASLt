@@ -3914,96 +3914,47 @@ class KernelWriterAssembly(KernelWriter):
           imod.add(SCmpEQU32(src0=sgpr(tmp), src1=check_idx, comment=""))
           imod.add(SCBranchSCC1(labelName=label_tmp.getLabelName(), comment=""))
 
-      def expandLoad(kIdx, kCnt, tP, reg, banch_label, tmpVgpr, vmCnt):
+      def expandLoadOrMerge(kIdx, kCnt, tP, reg, banch_label, finalCheck, tmpVgpr, vmCnt, string):
         tc = tP["tensorChar"]
-        imod.add(Label(label=check_point_labels[kCnt - kIdx - 1].getLabelName().strip("label_") + "_LOAD_" + tc, comment=""))
+        imod.add(Label(label=check_point_labels[kCnt - kIdx - 1].getLabelName().strip("label_") + "_" + string + "_" + tc, comment=""))
         num_threads_in_perpendicular = kernel[tP["lsp"]]
         num_threads_in_coalesced = int(kernel["NumThreads"] / num_threads_in_perpendicular)
-        load_labels = []
-        nlp = kernel["NumLoadsPerpendicular%c"%(tc)]
-        nlc = kernel["NumLoadsCoalesced%c"%(tc)]
-        print("tC = %s, nlp = %d, nlc = %d"%(tc, nlp, nlc))
-        r = 2 * kIdx
-        for lp in reversed(range(nlp)):
-          for lc in reversed(range(nlc)):
-            label_str = check_point_labels[kCnt - kIdx - 1].getLabelName().strip("label_") + "_LOAD_" + tc + str(lc) + "_" + str(lp)
-            label_tmp = Label(label=label_str, comment="")
-            load_labels.append(label_tmp)
-            load_idx = lp * nlc + lc
-            if load_idx != 0:
-              imod.add(SCmpEQU32(src0=sgpr(reg), src1=load_idx, comment=""))
-              imod.add(SCBranchSCC1(labelName=label_tmp.getLabelName(), comment=""))
-
-        imod.add(self.globalReadGuardK(kernel, tP, r, 1, 0, load_labels, banch_label, 0, tmpVgpr, vmCnt))
-
-      def expandMerge(kIdx, kCnt, tP, reg, banch_label, finalCheck, tmpVgpr, vmCnt):
-        tc = tP["tensorChar"]
-        imod.add(Label(label=check_point_labels[kCnt - kIdx - 1].getLabelName().strip("label_") + "_MERGE_" + tc, comment=""))
-        num_threads_in_perpendicular = kernel[tP["lsp"]]
-        num_threads_in_coalesced = int(kernel["NumThreads"] / num_threads_in_perpendicular)
-        merge_labels = []
+        labels = []
         nlp = kernel["NumLoadsPerpendicular%c"%(tc)]
         nlc = kernel["NumLoadsCoalesced%c"%(tc)]
         r = 2 * kIdx
         for lp in reversed(range(nlp)):
           for lc in reversed(range(nlc)):
-            label_str = check_point_labels[kCnt - kIdx - 1].getLabelName().strip("label_") + "_MERGE_" + tc + str(lc) + "_" + str(lp)
+            label_str = check_point_labels[kCnt - kIdx - 1].getLabelName().strip("label_") + "_" + string + "_" + tc + str(lc) + "_" + str(lp)
             label_tmp = Label(label=label_str, comment="")
-            merge_labels.append(label_tmp)
-            merge_idx = lp * nlc + lc
-            if merge_idx != 0:
-              imod.add(SCmpEQU32(src0=sgpr(reg), src1=merge_idx, comment=""))
+            labels.append(label_tmp)
+            idx = lp * nlc + lc
+            if idx != 0:
+              imod.add(SCmpEQU32(src0=sgpr(reg), src1=idx, comment=""))
               imod.add(SCBranchSCC1(labelName=label_tmp.getLabelName(), comment=""))
-        imod.add(self.globalReadGuardK(kernel, tP, r, 0, 1, merge_labels, banch_label, finalCheck, tmpVgpr, vmCnt))
+        if string == "MERGE":
+          merge_flag = True
+          load_flag = 0
+        elif string == "LOAD":
+          merge_flag = 0
+          load_flag = 1
+        else:
+          print("ERROR! Should be MERGE or LOAD\n")
+        imod.add(self.globalReadGuardK(kernel, tP, r, load_flag, merge_flag, labels, banch_label, finalCheck, tmpVgpr, vmCnt))
 
       def loadMergeBody(kIdx, kCnt, skipLabel, finalCheck, tmpVgpr):  # 0 2 4 6, check_point_per_thread
         imod.add(check_point_labels[kCnt - kIdx - 1])
         loadBLabel = Label(label=check_point_labels[kCnt - kIdx - 1].getLabelName().strip("label_") + "_LOAD_B", comment="")
-        expandLoad(kIdx, kCnt, tPA, (tmp+2), loadBLabel, tmpVgpr, 0)
+        #expandLoad(kIdx, kCnt, tPA, (tmp+2), loadBLabel, tmpVgpr, 0)
+        expandLoadOrMerge(kIdx, kCnt, tPA, (tmp+2), loadBLabel, finalCheck, tmpVgpr, 0, "LOAD")
         mergeALabel = Label(label=check_point_labels[kCnt - kIdx - 1].getLabelName().strip("label_") + "_MERGE_A", comment="")
-        expandLoad(kIdx, kCnt, tPB, (tmp+4), mergeALabel, tmpVgpr+1, 0)
+        #expandLoad(kIdx, kCnt, tPB, (tmp+4), mergeALabel, tmpVgpr+1, 0)
+        expandLoadOrMerge(kIdx, kCnt, tPB, (tmp+4), mergeALabel, finalCheck, tmpVgpr+1, 0, "LOAD")
         mergeBLabel = Label(label=check_point_labels[kCnt - kIdx - 1].getLabelName().strip("label_") + "_MERGE_B", comment="")
-        expandMerge(kIdx, kCnt, tPA, (tmp+2), mergeBLabel, finalCheck, tmpVgpr, 1)
-        expandMerge(kIdx, kCnt, tPB, (tmp+4), skipLabel, finalCheck, tmpVgpr+1, 0)
-        ## LOAD A
-        #imod.add(Label(label=check_point_labels[kCnt - kIdx - 1].getLabelName().strip("label_") + "_LOAD_" + tpAC, comment=""))
-        #tpAC = tPA["tensorChar"]
-        #num_threads_in_perpendicular = kernel[tPA["lsp"]]
-        #num_threads_in_coalesced = int(kernel["NumThreads"] / num_threads_in_perpendicular)
-        #load_labels = []
-        #nlp = kernel["NumLoadsPerpendicular%c"%(tpAC)]
-        #nlc = kernel["NumLoadsCoalesced%c"%(tpAC)]
-        #print("tpAC = %s, nlp = %d, nlc = %d"%(tpAC, nlp, nlc))
-        #r = 2 * kIdx
-        #for lp in reversed(range(nlp)):
-        #  for lc in reversed(range(nlc)):
-        #    label_str = check_point_labels[kCnt - kIdx - 1].getLabelName().strip("label_") + "_LOAD_" + tpAC + str(lc) + "_" + str(lp)
-        #    label_tmp = Label(label=label_str, comment="")
-        #    load_labels.append(label_tmp)
-        #    load_idx = lp * nlc + lc
-        #    if load_idx != 0:
-        #      imod.add(SCmpEQU32(src0=sgpr(tmp+2), src1=load_idx, comment=""))
-        #      imod.add(SCBranchSCC1(labelName=label_tmp.getLabelName(), comment=""))
-  
-        #imod.add(self.globalReadGuardK(kernel, tPA, r, 1, 0, load_labels))
-  
-
-
-
-
-        #merge_label = Label(label=check_point_labels[kCnt - kIdx - 1].getLabelName().strip("label_") + "_MERGE_" + tpAC, comment="")
-        #imod.add(merge_label)
-        #merge_labels = []
-        #for lp in reversed(range(nlp)):
-        #  for lc in reversed(range(nlc)):
-        #    label_str = check_point_labels[kCnt - kIdx - 1].getLabelName().strip("label_") + "_MERGE_" + tpAC + str(lc) + "_" + str(lp)
-        #    label_tmp = Label(label=label_str, comment="")
-        #    merge_labels.append(label_tmp)
-        #    merge_idx = lp * nlc + lc
-        #    if merge_idx != 0:
-        #      imod.add(SCmpEQU32(src0=sgpr(tmp+2), src1=merge_idx, comment=""))
-        #      imod.add(SCBranchSCC1(labelName=label_tmp.getLabelName(), comment=""))
-        #imod.add(self.globalReadGuardK(kernel, tPA, r, 0, 1, merge_labels))
+        #expandMerge(kIdx, kCnt, tPA, (tmp+2), mergeBLabel, finalCheck, tmpVgpr, 1)
+        #expandMerge(kIdx, kCnt, tPB, (tmp+4), skipLabel, finalCheck, tmpVgpr+1, 0)
+        expandLoadOrMerge(kIdx, kCnt, tPA, (tmp+2), mergeBLabel, finalCheck, tmpVgpr, 1, "MERGE")
+        expandLoadOrMerge(kIdx, kCnt, tPB, (tmp+4), skipLabel, finalCheck, tmpVgpr+1, 0, "MERGE")
 
 
       tmpVgpr = self.vgprPool.checkOut(2)
@@ -4014,6 +3965,7 @@ class KernelWriterAssembly(KernelWriter):
 
       imod.add(skipLabel)
     return imod
+  
   ##############################################################################
   # Emit code to compute loop iterations for GSU.
   # See same function in KernelWriterSource.py for background explanation
