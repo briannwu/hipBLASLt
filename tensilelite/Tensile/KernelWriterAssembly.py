@@ -3878,6 +3878,8 @@ class KernelWriterAssembly(KernelWriter):
 
   def test_instruction(self, kernel, tPA, tPB):
     print("test_instruction")
+    doA = True if tPA["glvw"] > 1 else False
+    doB = True if tPB["glvw"] > 1 else False
     imod = Module("TEST")
     rec_MT0 = ceil((1.0 / kernel["MacroTile0"]) * 65536)
     rec_MT1 = ceil((1.0 / kernel["MacroTile1"]) * 65536)
@@ -3928,50 +3930,92 @@ class KernelWriterAssembly(KernelWriter):
 
     with self.allocTmpSgpr(8) as tmpSgprInfo:
       tmp = tmpSgprInfo.idx  # s74, 75, 76, 77, 78, 79, 80, 81
-      imod.add(SSubU32(dst=sgpr(tmp), src0=sgpr("SizeI"), src1=1))
-      imod.add(SSubU32(dst=sgpr(tmp+1), src0=sgpr("SizeJ"), src1=1))
-      imod.addModuleAsFlatItems(self.s_mul_u64_u32(sgpr(tmp+2), sgpr(tmp+3), sgpr(tmp), hex(rec_MT0), "1/MT0"))
-      imod.addModuleAsFlatItems(self.s_mul_u64_u32(sgpr(tmp+4), sgpr(tmp+5), sgpr(tmp+1), hex(rec_MT1), "1/MT1"))
-      imod.add(SLShiftRightB64(dst=sgpr(tmp+2,2), shiftHex=hex(16), src=sgpr(tmp+2,2), comment="left shift 16 bits"))
-      imod.add(SLShiftRightB64(dst=sgpr(tmp+4,2), shiftHex=hex(16), src=sgpr(tmp+4,2), comment="left shift 16 bits"))
-      imod.add(SMulI32(dst=sgpr(tmp+2), src0=sgpr(tmp+2), src1=kernel["MacroTile0"]))
-      imod.add(SMulI32(dst=sgpr(tmp+4), src0=sgpr(tmp+4), src1=kernel["MacroTile1"]))
-      imod.add(SSubU32(dst=sgpr(tmp+2), src0=sgpr(tmp), src1=sgpr(tmp+2)))
-      imod.add(SSubU32(dst=sgpr(tmp+4), src0=sgpr(tmp+1), src1=sgpr(tmp+4)))
-      imod.add(SLShiftRightB32(dst=sgpr(tmp+2), shiftHex=hex(log2(lspA)), src=sgpr(tmp+2), comment="divide lsp"))
-      imod.add(SLShiftRightB32(dst=sgpr(tmp+4), shiftHex=hex(log2(lspB)), src=sgpr(tmp+4), comment="divide lsp"))
-      # A
-      imod.add(SAndB32(dst=sgpr(tmp), src0=sgpr("LoopCounterL"), src1=(tPA["glvw"] - 1), comment="s[sgprLoopCounterL] % glvw"))
-      imod.add(SAndB32(dst=sgpr(tmp+5), src0=sgpr(tmp), src1=1, comment=" % 2"))
-      # B
-      imod.add(SAndB32(dst=sgpr(tmp+1), src0=sgpr("LoopCounterL"), src1=(tPB["glvw"] - 1), comment="s[sgprLoopCounterL] % glvw"))
-      imod.add(SAndB32(dst=sgpr(tmp+6), src0=sgpr(tmp+1), src1=1, comment=" % 2"))
+      # for A
+      if doA:
+        imod.add(SSubU32(dst=sgpr(tmp), src0=sgpr("SizeI"), src1=1))
+#        regStateResA = RegisterPoolResource(idx=tmp+8, size=2)
+        imod.add(scalarStaticDivideAndRemainder(tmp+2, tmp+2, tmp, kernel["MacroTile0"], RegisterPoolResource(tmp+4, 2), 1))
+        #imod.add(scalarStaticCeilDivide(qReg=sgpr(tmp+7), dReg=sgpr(tmp), divisor=kernel["MacroTile0"], tmpSgprRes=regStateResA))
+#        imod.addModuleAsFlatItems(self.s_mul_u64_u32(sgpr(tmp+2), sgpr(tmp+3), sgpr(tmp), hex(rec_MT0), "1/MT0"))
+#        imod.add(SLShiftRightB64(dst=sgpr(tmp+2,2), shiftHex=hex(16), src=sgpr(tmp+2,2), comment="left shift 16 bits"))
+#        imod.add(SMulI32(dst=sgpr(tmp+2), src0=sgpr(tmp+2), src1=kernel["MacroTile0"]))
+#        imod.add(SSubU32(dst=sgpr(tmp+2), src0=sgpr(tmp), src1=sgpr(tmp+2)))
+        imod.add(SLShiftRightB32(dst=sgpr(tmp+2), shiftHex=hex(log2(lspA)), src=sgpr(tmp+2), comment="divide lsp"))
+      # for B
+      if doB:
+        imod.add(SSubU32(dst=sgpr(tmp+1), src0=sgpr("SizeJ"), src1=1))
+#        regStateResB = RegisterPoolResource(idx=tmp+10, size=2)
+        imod.add(scalarStaticDivideAndRemainder(tmp+4, tmp+4, tmp+1, kernel["MacroTile1"], RegisterPoolResource(tmp+6, 2), 1))
+#        imod.addModuleAsFlatItems(self.s_mul_u64_u32(sgpr(tmp+4), sgpr(tmp+5), sgpr(tmp+1), hex(rec_MT1), "1/MT1"))
+#        imod.add(SLShiftRightB64(dst=sgpr(tmp+4,2), shiftHex=hex(16), src=sgpr(tmp+4,2), comment="left shift 16 bits"))
+#        imod.add(SMulI32(dst=sgpr(tmp+4), src0=sgpr(tmp+4), src1=kernel["MacroTile1"]))
+#        imod.add(SSubU32(dst=sgpr(tmp+4), src0=sgpr(tmp+1), src1=sgpr(tmp+4)))
+        imod.add(SLShiftRightB32(dst=sgpr(tmp+4), shiftHex=hex(log2(lspB)), src=sgpr(tmp+4), comment="divide lsp"))
 
-#      skipLabel    = Label(label="SKIP_LOAD_SINGLE_ELEMENT", comment="")
-#      imod.add(SCmpEQU32(src0=sgpr(tmp+1), src1=1, comment="multiple of 2?"))
-#      imod.add(SCBranchSCC0(labelName=load_b_label.getLabelName(), comment="A don't do anything"))
+      # A
+      if doA:
+        imod.add(SAndB32(dst=sgpr(tmp), src0=sgpr("LoopCounterL"), src1=(tPA["glvw"] - 1), comment="s[sgprLoopCounterL] % glvw"))
+        imod.add(SAndB32(dst=sgpr(tmp+5), src0=sgpr(tmp), src1=1, comment=" % 2"))
+
+      # B
+      if doB:
+        imod.add(SAndB32(dst=sgpr(tmp+1), src0=sgpr("LoopCounterL"), src1=(tPB["glvw"] - 1), comment="s[sgprLoopCounterL] % glvw"))
+        imod.add(SAndB32(dst=sgpr(tmp+6), src0=sgpr(tmp+1), src1=1, comment=" % 2"))
+      
+      #########################################################################################################
       tmpVgpr = self.vgprPool.checkOut(2)
       imod.addComment2("TEST CODE")
 
+      waitcnts = 0
+      # A
       imod.add(load_a_label)
-      imod.add(SCmpEQU32(src0=sgpr(tmp+5), src1=1, comment="multiple of 2?"))
-      imod.add(SCBranchSCC0(labelName=load_b_label.getLabelName(), comment="A don't do anything"))
-      LOAD_FUNC(tPA, tmpVgpr, "LOAD", load_b_label, tmp+2, tmp)
+      if doA:
+#        imod.add(load_a_label)
+        imod.add(SCmpEQU32(src0=sgpr(tmp+5), src1=1, comment="multiple of 2?"))
+#        imod.add(SCBranchSCC0(labelName=load_b_label.getLabelName(), comment="A don't do anything"))
+        waitcnts += 1
+        if doB:
+          imod.add(SCBranchSCC0(labelName=load_b_label.getLabelName(), comment="A don't do anything"))
+          LOAD_FUNC(tPA, tmpVgpr, "LOAD", load_b_label, tmp+2, tmp)
+        else:
+          imod.add(SCBranchSCC0(labelName=merge_a_label.getLabelName(), comment="A don't do anything"))
+          LOAD_FUNC(tPA, tmpVgpr, "LOAD", merge_a_label, tmp+2, tmp)
 
+      # B
       imod.add(load_b_label)
-      imod.add(SCmpEQU32(src0=sgpr(tmp+6), src1=1, comment="multiple of 2?"))
-      imod.add(SCBranchSCC0(labelName=merge_a_label.getLabelName(), comment="B don't do anything"))
-      LOAD_FUNC(tPB, tmpVgpr + 1, "LOAD", merge_a_label, tmp+4, tmp+1)
+      if doB:
+#        imod.add(load_b_label)
+        imod.add(SCmpEQU32(src0=sgpr(tmp+6), src1=1, comment="multiple of 2?"))
+#        imod.add(SCBranchSCC0(labelName=merge_a_label.getLabelName(), comment="B don't do anything"))
+        waitcnts += 1
+        if doA:
+          imod.add(SCBranchSCC0(labelName=merge_a_label.getLabelName(), comment="B don't do anything"))
+          LOAD_FUNC(tPB, tmpVgpr + 1, "LOAD", merge_a_label, tmp+4, tmp+1)
+        else:
+          imod.add(SCBranchSCC0(labelName=merge_b_label.getLabelName(), comment="B don't do anything"))
+          LOAD_FUNC(tPB, tmpVgpr + 1, "LOAD", merge_b_label, tmp+4, tmp+1)
 
+      # A
       imod.add(merge_a_label)
-      imod.add(SCmpEQU32(src0=sgpr(tmp+5), src1=1, comment="multiple of 2?"))
-      imod.add(SCBranchSCC0(labelName=merge_b_label.getLabelName(), comment="A don't do anything"))
-      LOAD_FUNC(tPA, tmpVgpr, "MERGE", merge_b_label, tmp+2, tmp, 1)
-
+      if doA:
+#        imod.add(merge_a_label)
+        imod.add(SCmpEQU32(src0=sgpr(tmp+5), src1=1, comment="multiple of 2?"))
+#        imod.add(SCBranchSCC0(labelName=merge_b_label.getLabelName(), comment="A don't do anything"))
+        waitcnts -= 1
+        if doB:
+          imod.add(SCBranchSCC0(labelName=merge_b_label.getLabelName(), comment="A don't do anything"))
+          LOAD_FUNC(tPA, tmpVgpr, "MERGE", merge_b_label, tmp+2, tmp, waitcnts)
+        else:
+          imod.add(SCBranchSCC0(labelName=skipLabel.getLabelName(), comment="A don't do anything"))
+          LOAD_FUNC(tPA, tmpVgpr, "MERGE", skipLabel, tmp+2, tmp, waitcnts)
+      # B
       imod.add(merge_b_label)
-      imod.add(SCmpEQU32(src0=sgpr(tmp+6), src1=1, comment="multiple of 2?"))
-      imod.add(SCBranchSCC0(labelName=skipLabel.getLabelName(), comment="B don't do anything"))
-      LOAD_FUNC(tPB, tmpVgpr + 1, "MERGE", skipLabel, tmp+4, tmp+1, 0)
+      if doB:
+#        imod.add(merge_b_label)
+        imod.add(SCmpEQU32(src0=sgpr(tmp+6), src1=1, comment="multiple of 2?"))
+        imod.add(SCBranchSCC0(labelName=skipLabel.getLabelName(), comment="B don't do anything"))
+        waitcnts -= 1
+        LOAD_FUNC(tPB, tmpVgpr + 1, "MERGE", skipLabel, tmp+4, tmp+1, waitcnts)
 
       imod.add(skipLabel)
       imod.addComment2("TEST CODE DONE")
