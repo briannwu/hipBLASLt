@@ -2370,17 +2370,38 @@ class KernelWriter(metaclass=abc.ABCMeta):
         module.add(self.removeStagger(kernel, tensorParametersA))
         module.add(self.removeStagger(kernel, tensorParametersB))
       print("tail loop")
-      module.addComment1("Update M0 for DTLDS")
-      moduleTmp = self.directToLdsM0Update(kernel, 1, tensorParametersA)
-      module.add(replaceHolder(moduleTmp, 0))
-      module.addComment1("global read A")
-      module.add(self.globalReadDo(kernel, 0, tensorParametersA))
 
       module.addComment1("Update M0 for DTLDS")
-      moduleTmp = self.directToLdsM0Update(kernel, 1, tensorParametersB)
-      module.add(replaceHolder(moduleTmp, 0))
-      module.addComment1("global read B")
-      module.add(self.globalReadDo(kernel, 0, tensorParametersB))
+      if tensorParametersA["glvw"] * tensorParametersA["bpe"] < 4:
+        moduleTmp = self.directToLdsM0Update(kernel, 1, tensorParametersA)
+        module.add(replaceHolder(moduleTmp, 0))
+        module.addComment1("global read A")
+        module.add(self.globalReadDo(kernel, 2, tensorParametersA))
+      else:
+        moduleTmp = self.directToLdsM0Update(kernel, 1, tensorParametersA)
+        module.add(replaceHolder(moduleTmp, 0))
+        module.addComment1("global read A")
+        module.add(self.globalReadDo(kernel, 0, tensorParametersA))
+
+      module.addComment1("Update M1 for DTLDS")
+      if tensorParametersB["glvw"] * tensorParametersB["bpe"] < 4:
+        moduleTmp = self.directToLdsM0Update(kernel, 1, tensorParametersB)
+        module.add(replaceHolder(moduleTmp, 0))
+        module.addComment1("global read B")
+        module.add(self.globalReadDo(kernel, 2, tensorParametersB))
+      else:
+        moduleTmp = self.directToLdsM0Update(kernel, 1, tensorParametersB)
+        module.add(replaceHolder(moduleTmp, 0))
+        module.addComment1("global read B")
+        module.add(self.globalReadDo(kernel, 0, tensorParametersB))
+#      moduleTmp = self.directToLdsM0Update(kernel, 1, tensorParametersA)
+#      module.add(replaceHolder(moduleTmp, 0))
+#      module.addComment1("global read A")
+#      module.add(self.globalReadDo(kernel, 0, tensorParametersA))
+#      moduleTmp = self.directToLdsM0Update(kernel, 1, tensorParametersB)
+#      module.add(replaceHolder(moduleTmp, 0))
+#      module.addComment1("global read B")
+#      module.add(self.globalReadDo(kernel, 0, tensorParametersB))
 
       module.add(self.test_instruction(kernel, tensorParametersA, tensorParametersB))
 
