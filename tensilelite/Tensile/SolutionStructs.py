@@ -1390,8 +1390,8 @@ class Solution(collections.abc.Mapping):
     if (tuple(state["ISA"]) != (9, 4, 2)) or \
        (state["ProblemType"]["Sparse"]) or \
        (state["LocalSplitU"] > 1) or \
-       (state["WaveSeparateGlobalReadA"] != 0) or \
-       (state["WaveSeparateGlobalReadB"] != 0) or \
+       (state["WaveSeparateGlobalReadA"] > 1) or \
+       (state["WaveSeparateGlobalReadB"] > 1) or \
        (state["DirectToVgprA"] or state["DirectToVgprB"]):
        state["tailLoopOpt"] = False
     else:

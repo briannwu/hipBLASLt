@@ -4067,8 +4067,21 @@ class KernelWriterAssembly(KernelWriter):
 
   def tailLoopGlobalRead(self, kernel, tPA, tPB):
     imod = Module("tailLoopGlobalRead")
-    doA = True if ((tPA["glvw"] * tPA["bpeGR"] >= 4) and (tPA["bpeGR"] % 4 != 0)) else False
-    doB = True if ((tPB["glvw"] * tPB["bpeGR"] >= 4) and (tPB["bpeGR"] % 4 != 0)) else False
+    tagList = ["AddressA", "AddressB", "WrapUA", "WrapUB", "StaggerU", "WGM"]
+    lastRegTag = None
+    for i in range(0, self.sgprPool.size()):
+      regTag = self.sgprPool.pool[i].tag
+      if regTag != lastRegTag:
+        lastRegTag = regTag
+        if (lastRegTag not in self.states.nonPostLoopSgpr) and \
+           (self.sgprPool.pool[i].status == RegisterPool.Status.InUse) and \
+           (lastRegTag in tagList):
+          imod.add(self.undefineSgpr(regTag))
+
+    doA = True if ((tPA["glvw"] * tPA["bpeGR"] >= 4) and (tPA["bpeGR"] % 4 != 0) and
+                   not kernel["ProblemType"]["TLUA"]) else False
+    doB = True if ((tPB["glvw"] * tPB["bpeGR"] >= 4) and (tPB["bpeGR"] % 4 != 0) and
+                   not kernel["ProblemType"]["TLUB"]) else False
     loadALabel  = Label(label="LOAD_A", comment="")
     loadBLabel  = Label(label="LOAD_B", comment="")
     mergeALabel = Label(label="MERGE_A", comment="")
@@ -4078,6 +4091,8 @@ class KernelWriterAssembly(KernelWriter):
     lscA = kernel[tPA["lsc"]]
     lspB = kernel[tPB["lsp"]]
     lscB = kernel[tPB["lsc"]]
+    nlcA = kernel["NumLoadsCoalescedA"]
+    nlcB = kernel["NumLoadsCoalescedB"]
     nlpA = kernel["NumLoadsPerpendicularA"]
     nlpB = kernel["NumLoadsPerpendicularB"]
     numElementsPer4BytesA = int(4 / tPA["bpeGR"])
@@ -4117,8 +4132,8 @@ class KernelWriterAssembly(KernelWriter):
 
     tmpSgprA1 = self.sgprPool.checkOut(1, preventOverflow=False)
     tmpSgprB1 = self.sgprPool.checkOut(1, preventOverflow=False)
-#    tmpSgprA2 = self.sgprPool.checkOut(1, preventOverflow=False)
-#    tmpSgprB2 = self.sgprPool.checkOut(1, preventOverflow=False)
+    tmpSgprA2 = self.sgprPool.checkOut(1, preventOverflow=False)
+    tmpSgprB2 = self.sgprPool.checkOut(1, preventOverflow=False)
     tmpSgpr = self.sgprPool.checkOutAligned(2, 2, preventOverflow=False)
     tmpSgprQregA = self.sgprPool.checkOut(1, preventOverflow=False)
     tmpSgprQregB = self.sgprPool.checkOut(1, preventOverflow=False)
@@ -4129,32 +4144,40 @@ class KernelWriterAssembly(KernelWriter):
     if doA:
       if (kernel["WaveSeparateGlobalReadA"] == 0):
         tmpSgprA = tmpSgprQregA
-#      else:
-#        tmpSgprA = tmpSgprA2
+      else:
+        tmpSgprA = tmpSgprA2
       imod.add(SSubU32(dst=sgpr(tmpSgprA1), src0=sgpr("SizeI"), src1=1))
       imod.add(scalarStaticDivideAndRemainder(tmpSgprA, tmpSgprA, tmpSgprA1, \
                                               kernel["MacroTile0"], \
                                               RegisterPoolResource(tmpSgpr, 2), 1))
-#      if (kernel["WaveSeparateGlobalReadA"] == 1):
-#        imod.add(scalarStaticDivideAndRemainder(tmpSgprQregA, tmpSgprQregA, tmpSgprA, \
-#                                                (nlpA * lspA), \
-#                                                RegisterPoolResource(tmpSgpr, 2), 1))
+      if (kernel["WaveSeparateGlobalReadA"] == 1):
+        imod.add(scalarStaticDivideAndRemainder(tmpSgprQregA, tmpSgprQregA, tmpSgprA, \
+                                                (nlpA * lspA), \
+                                                RegisterPoolResource(tmpSgpr, 2), 1))
+        imod.add(SMulI32(dst=sgpr(tmpSgprQregA), src0=sgpr(tmpSgprQregA), src1=nlcA, comment=""))
+        imod.add(SLShiftRightB32(dst=sgpr(tmpSgpr), shiftHex=hex(log2(lscA)), \
+                                 src=sgpr("LoopCounterL"), comment="divide lsp"))
+        imod.add(SAddI32(dst=sgpr(tmpSgprQregA), src0=sgpr(tmpSgprQregA), src1=sgpr(tmpSgpr), comment=""))
       imod.add(SLShiftRightB32(dst=sgpr(tmpSgprQregA), shiftHex=hex(log2(lspA)), \
                                src=sgpr(tmpSgprQregA), comment="divide lsp"))
     # for B
     if doB:
       if (kernel["WaveSeparateGlobalReadB"] == 0):
         tmpSgprB = tmpSgprQregB
-#      else:
-#        tmpSgprB = tmpSgprA2
+      else:
+        tmpSgprB = tmpSgprB2
       imod.add(SSubU32(dst=sgpr(tmpSgprB1), src0=sgpr("SizeJ"), src1=1))
       imod.add(scalarStaticDivideAndRemainder(tmpSgprB, tmpSgprB, tmpSgprB1, \
                                               kernel["MacroTile1"], \
                                               RegisterPoolResource(tmpSgpr, 2), 1))
-#      if (kernel["WaveSeparateGlobalReadB"] == 1):
-#        imod.add(scalarStaticDivideAndRemainder(tmpSgprQregB, tmpSgprQregB, tmpSgprB, \
-#                                                (nlpB * lspB), \
-#                                                RegisterPoolResource(tmpSgpr, 2), 1))
+      if (kernel["WaveSeparateGlobalReadB"] == 1):
+        imod.add(scalarStaticDivideAndRemainder(tmpSgprQregB, tmpSgprQregB, tmpSgprB, \
+                                                (nlpB * lspB), \
+                                                RegisterPoolResource(tmpSgpr, 2), 1))
+        imod.add(SMulI32(dst=sgpr(tmpSgprQregB), src0=sgpr(tmpSgprQregB), src1=nlcB, comment=""))
+        imod.add(SLShiftRightB32(dst=sgpr(tmpSgpr), shiftHex=hex(log2(lscB)), \
+                                 src=sgpr("LoopCounterL"), comment="divide lsp"))
+        imod.add(SAddI32(dst=sgpr(tmpSgprQregB), src0=sgpr(tmpSgprQregB), src1=sgpr(tmpSgpr), comment=""))
       imod.add(SLShiftRightB32(dst=sgpr(tmpSgprQregB), shiftHex=hex(log2(lspB)), \
                                src=sgpr(tmpSgprQregB), comment="divide lsp"))
 
@@ -4240,8 +4263,8 @@ class KernelWriterAssembly(KernelWriter):
       self.vgprPool.checkIn(tmpVgpr)
     self.sgprPool.checkIn(tmpSgprA1)
     self.sgprPool.checkIn(tmpSgprB1)
-#    self.sgprPool.checkIn(tmpSgprA2)
-#    self.sgprPool.checkIn(tmpSgprB2)
+    self.sgprPool.checkIn(tmpSgprA2)
+    self.sgprPool.checkIn(tmpSgprB2)
     self.sgprPool.checkIn(tmpSgpr)
     self.sgprPool.checkIn(tmpSgprQregA)
     self.sgprPool.checkIn(tmpSgprQregB)
