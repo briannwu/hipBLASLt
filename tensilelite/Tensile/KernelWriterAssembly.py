@@ -4065,9 +4065,10 @@ class KernelWriterAssembly(KernelWriter):
 
     return imod
 
-  def tailLoopGlobalRead(self, kernel, tPA, tPB):
+  def tailLoopGlobalRead(self, kernel, tPA, tPB, doA, doB):
     imod = Module("tailLoopGlobalRead")
     tagList = ["AddressA", "AddressB", "WrapUA", "WrapUB", "StaggerU", "WGM"]
+#    print("tailLoopGlobalRead")
     lastRegTag = None
     for i in range(0, self.sgprPool.size()):
       regTag = self.sgprPool.pool[i].tag
@@ -4078,10 +4079,11 @@ class KernelWriterAssembly(KernelWriter):
            (lastRegTag in tagList):
           imod.add(self.undefineSgpr(regTag))
 
-    doA = True if ((tPA["glvw"] * tPA["bpeGR"] >= 4) and (tPA["bpeGR"] % 4 != 0) and
-                   not kernel["ProblemType"]["TLUA"]) else False
-    doB = True if ((tPB["glvw"] * tPB["bpeGR"] >= 4) and (tPB["bpeGR"] % 4 != 0) and
-                   not kernel["ProblemType"]["TLUB"]) else False
+#    doA = True if ((tPA["glvw"] * tPA["bpeGR"] >= 4) and (tPA["bpeGR"] % 4 != 0) and
+#                   not kernel["ProblemType"]["TLUA"]) else False
+#    doB = True if ((tPB["glvw"] * tPB["bpeGR"] >= 4) and (tPB["bpeGR"] % 4 != 0) and
+#                   not kernel["ProblemType"]["TLUB"]) else False
+#    print("doA = ", doA, ", doB = ", doB)
     loadALabel  = Label(label="LOAD_A", comment="")
     loadBLabel  = Label(label="LOAD_B", comment="")
     mergeALabel = Label(label="MERGE_A", comment="")
@@ -4126,7 +4128,7 @@ class KernelWriterAssembly(KernelWriter):
               labelStr2 = labelStr+"_K"+str(i)
               labelTmp = Label(label=labelStr2, comment="")
               kLabelsList.append(labelTmp)
-          imod.add(self.globalReadGuardK(kernel, tP, True, idx, jumpLabel, tmpVgpr, kLabelsList, behavior, kSgpr))
+          imod.add(self.globalReadGuardK(kernel, tP, 1, idx, jumpLabel, tmpVgpr, kLabelsList, behavior, kSgpr))
 
       func(numTiles - 1, behavior, jumpLabel, tileSgpr, kSgpr)
 
@@ -4154,10 +4156,24 @@ class KernelWriterAssembly(KernelWriter):
         imod.add(scalarStaticDivideAndRemainder(tmpSgprQregA, tmpSgprQregA, tmpSgprA, \
                                                 (nlpA * lspA), \
                                                 RegisterPoolResource(tmpSgpr, 2), 1))
-        imod.add(SMulI32(dst=sgpr(tmpSgprQregA), src0=sgpr(tmpSgprQregA), src1=nlcA, comment=""))
-        imod.add(SLShiftRightB32(dst=sgpr(tmpSgpr), shiftHex=hex(log2(lscA)), \
-                                 src=sgpr("LoopCounterL"), comment="divide lsp"))
-        imod.add(SAddI32(dst=sgpr(tmpSgprQregA), src0=sgpr(tmpSgprQregA), src1=sgpr(tmpSgpr), comment=""))
+#        imod.add(SMulI32(dst=sgpr(tmpSgprQregA), src0=sgpr(tmpSgprQregA), src1=nlcA, comment=""))
+#        imod.add(SLShiftRightB32(dst=sgpr(tmpSgpr), shiftHex=hex(log2(lscA)), \
+#                                 src=sgpr("LoopCounterL"), comment=""))
+#        imod.add(SAddI32(dst=sgpr(tmpSgprQregA), src0=sgpr(tmpSgprQregA), src1=sgpr(tmpSgpr), comment=""))
+      elif (kernel["WaveSeparateGlobalReadA"] == 2):
+        print("A WaveSeparateGlobalReadA 2")
+        ofst = kernel["NumLoadsPerpendicularA"]*kernel["NumThreads"]//kernel["WavefrontSize"]
+        imod.add(scalarStaticDivideAndRemainder(tmpSgprQregA, tmpSgprQregA, tmpSgprA, \
+                                               (ofst), \
+                                               RegisterPoolResource(tmpSgpr, 2), 1))
+#        imod.add(SMulI32(dst=sgpr(tmpSgprQregA), src0=sgpr(tmpSgprQregA), src1=nlcA, comment=""))
+#        imod.add(SLShiftRightB32(dst=sgpr(tmpSgpr), shiftHex=hex(log2(lscA)), \
+#                                 src=sgpr("LoopCounterL"), comment=""))
+#        imod.add(SAddI32(dst=sgpr(tmpSgprQregA), src0=sgpr(tmpSgprQregA), src1=sgpr(tmpSgpr), comment=""))
+      imod.add(SMulI32(dst=sgpr(tmpSgprQregA), src0=sgpr(tmpSgprQregA), src1=nlcA, comment=""))
+      imod.add(SLShiftRightB32(dst=sgpr(tmpSgpr), shiftHex=hex(log2(lscA)), \
+                               src=sgpr("LoopCounterL"), comment=""))
+      imod.add(SAddI32(dst=sgpr(tmpSgprQregA), src0=sgpr(tmpSgprQregA), src1=sgpr(tmpSgpr), comment=""))
       imod.add(SLShiftRightB32(dst=sgpr(tmpSgprQregA), shiftHex=hex(log2(lspA)), \
                                src=sgpr(tmpSgprQregA), comment="divide lsp"))
     # for B
@@ -4174,10 +4190,23 @@ class KernelWriterAssembly(KernelWriter):
         imod.add(scalarStaticDivideAndRemainder(tmpSgprQregB, tmpSgprQregB, tmpSgprB, \
                                                 (nlpB * lspB), \
                                                 RegisterPoolResource(tmpSgpr, 2), 1))
-        imod.add(SMulI32(dst=sgpr(tmpSgprQregB), src0=sgpr(tmpSgprQregB), src1=nlcB, comment=""))
-        imod.add(SLShiftRightB32(dst=sgpr(tmpSgpr), shiftHex=hex(log2(lscB)), \
-                                 src=sgpr("LoopCounterL"), comment="divide lsp"))
-        imod.add(SAddI32(dst=sgpr(tmpSgprQregB), src0=sgpr(tmpSgprQregB), src1=sgpr(tmpSgpr), comment=""))
+#        imod.add(SMulI32(dst=sgpr(tmpSgprQregB), src0=sgpr(tmpSgprQregB), src1=nlcB, comment=""))
+#        imod.add(SLShiftRightB32(dst=sgpr(tmpSgpr), shiftHex=hex(log2(lscB)), \
+#                                 src=sgpr("LoopCounterL"), comment="divide lsp"))
+#        imod.add(SAddI32(dst=sgpr(tmpSgprQregB), src0=sgpr(tmpSgprQregB), src1=sgpr(tmpSgpr), comment=""))
+      elif (kernel["WaveSeparateGlobalReadB"] == 2):
+        ofst = kernel["NumLoadsPerpendicularB"]*kernel["NumThreads"]//kernel["WavefrontSize"]
+        imod.add(scalarStaticDivideAndRemainder(tmpSgprQregB, tmpSgprQregB, tmpSgprB, \
+                                               (ofst), \
+                                               RegisterPoolResource(tmpSgpr, 2), 1))
+#        imod.add(SMulI32(dst=sgpr(tmpSgprQregB), src0=sgpr(tmpSgprQregB), src1=nlcA, comment=""))
+#        imod.add(SLShiftRightB32(dst=sgpr(tmpSgpr), shiftHex=hex(log2(lscB)), \
+#                                 src=sgpr("LoopCounterL"), comment=""))
+#        imod.add(SAddI32(dst=sgpr(tmpSgprQregB), src0=sgpr(tmpSgprQregB), src1=sgpr(tmpSgpr), comment=""))
+      imod.add(SMulI32(dst=sgpr(tmpSgprQregB), src0=sgpr(tmpSgprQregB), src1=nlcA, comment=""))
+      imod.add(SLShiftRightB32(dst=sgpr(tmpSgpr), shiftHex=hex(log2(lscB)), \
+                               src=sgpr("LoopCounterL"), comment=""))
+      imod.add(SAddI32(dst=sgpr(tmpSgprQregB), src0=sgpr(tmpSgprQregB), src1=sgpr(tmpSgpr), comment=""))
       imod.add(SLShiftRightB32(dst=sgpr(tmpSgprQregB), shiftHex=hex(log2(lspB)), \
                                src=sgpr(tmpSgprQregB), comment="divide lsp"))
 
@@ -6242,17 +6271,21 @@ class KernelWriterAssembly(KernelWriter):
 
   ##############################################################################
   # Global Read:
-  # globalReadGuardK is called for loads in the tail loop
+  # globalReadTrueGuardK is called for loads in the tail loop
   # Must ensure each load is in bounds - either using buffer bounds
   # or exec-mask checks.
   ##############################################################################
-  def globalReadGuardK(self, kernel, tP, doTailOpt = False, \
-                       idx = 0, jumpLabel = None, tmpVgpr = None, kLabelsList = [], behavior = "", kSgpr = None):
+  def globalReadGuardK(self, kernel, tP, doTailOpt = 0, \
+                       idx = 0, jumpLabel = None, tmpVgpr = None, kLabelsList = [], \
+                       behavior = "", kSgpr = None, vgprSlot = [], periodParam = [], loadNum = 0, preDirectToLdsLoads = 0, finalLoop = 0):
     module = Module("globalReadGuardK")
+
+
     tc = tP["tensorChar"]
     problemType = self.states.kernel["ProblemType"]
     numElementsPer4Bytes = int(4 / tP["bpeGR"])
-
+#    print("tc = ", tc)
+#    print("len vgprSlot = ", len(vgprSlot))
     ########################################
     # Calculate Max Addr
     ########################################
@@ -6307,9 +6340,13 @@ class KernelWriterAssembly(KernelWriter):
         module.add(VMovB32(dst=vgpr(zeroVgpr), src=hex(0), comment="zero"))
 
     def globalReadGuardKBody(tP, tmpVgpr = None, kLabelsList = [], behavior = "", jumpLabel = None, \
-                             numElementsPer4Bytes = 0, kSgpr = None, doTailOpt = False):
+                             numElementsPer4Bytes = 0, kSgpr = None, doTailOpt = 0, vgprSlot = [], \
+                             periodParam = [], loadNum = 0, preDirectToLdsLoads = 0):
       tc = tP["tensorChar"]
       self.vgprs.globalReadRegisters[tc] = []
+#      if len(vgprGlobalReadRegs != 0):
+#        self.vgprs.globalReadRegisters[tc].append(vgprGlobalReadRegs)
+#      print("@@@ globalReadGuardKBody tc ", tc, ": ", self.vgprs.globalReadRegisters[tc])
       tcDataType = "" if tc == "Metadata" else tc
       graIdx = 0
       g2lIdx = 0
@@ -6321,16 +6358,43 @@ class KernelWriterAssembly(KernelWriter):
       isLds = True if kernel["DirectToLds%s"%tc] else False
 
       directToLdsLoads = 0
+      if doTailOpt == 2 and behavior == "LOAD":
+          directToLdsLoads += preDirectToLdsLoads
       prevLdsOffset    = 0
 
       instOffset = 0
       loopCnt = -1
-      for perp in range(0, tP["nrp"]):
-        for sPerp in range(0, tP["nrpv"]):
-          for para in range(0, tP["nrc"]):
-            for sPara in range(0, tP["nrcv"]//tP["nrcvpi"]):
+      vgprIdx = 0
+      loadCnt = 0
+      perpStart = periodParam[0] if doTailOpt == 2 else 0
+      perpEnd = periodParam[1] if doTailOpt == 2 else tP["nrp"]
+      sPerpStart = periodParam[2] if doTailOpt == 2 else 0
+      sPerpEnd = periodParam[3] if doTailOpt == 2 else tP["nrpv"]
+      paraStart = periodParam[4] if doTailOpt == 2 else 0
+      paraEnd = periodParam[5] if doTailOpt == 2 else tP["nrc"]
+      sParaStart = periodParam[6] if doTailOpt == 2 else 0
+      sParaEnd = periodParam[7] if doTailOpt == 2 else (tP["nrcv"]//tP["nrcvpi"])
+      rStart = periodParam[8] if doTailOpt == 2 else 0
+      rEnd = periodParam[9] if doTailOpt == 2 else 0
+#      print("rStart = ", rStart)
+#      print("rEnd = ", rEnd)
+#      print("periodParam = ", periodParam)
+
+#      for perp in range(0, tP["nrp"]):
+#        for sPerp in range(0, tP["nrpv"]):
+#          for para in range(0, tP["nrc"]):
+#            for sPara in range(0, tP["nrcv"]//tP["nrcvpi"]):
+      for perp in range(perpStart, perpEnd):
+        for sPerp in range(sPerpStart, sPerpEnd):
+          for para in range(paraStart, paraEnd):
+            for sPara in range(sParaStart, sParaEnd):
               i = sPara + (tP["nrcv"] // tP["nrcvpi"]) * (para + tP["nrc"] * (sPerp + tP["nrpv"] * perp))
-              loopCnt += 1
+#              loopCnt += 1
+#              loopCnt = sPara + para * sParaEnd + sPerp * paraEnd + perp * sPerpEnd
+              loopCnt = sPara + para * sParaEnd + sPerp * paraEnd * sParaEnd  + perp * sPerpEnd * paraEnd * sParaEnd
+#              print("------------------------------------")
+#              print("loopCnt = ",loopCnt)
+
               graIdx = i * self.states.rpgo if kernel["BufferLoad"] else i * self.states.rpga
               g2lIdx = i * loadWidth * tP["bpeRatio"]
               if (tP["isA"] or tP["isB"]) and kernel["DirectToVgpr%s"%tc] and kernel["ConvertAfterDS"]:
@@ -6356,6 +6420,8 @@ class KernelWriterAssembly(KernelWriter):
                 # so far, limit to double only
                 numLoadVectorComp = numLoadVectorComp // kernel["GlobalReadVectorWidth%c"%tc]
               int8TempVgpr = numLoadVectorComp - 1
+#              print("numLoadVectorComp = ", numLoadVectorComp)
+#              print("int8TempVgpr = ", int8TempVgpr)
               # for each component in vector
               while r < numLoadVectorComp:
                 numElementsPerLoad = 1
@@ -6379,12 +6445,19 @@ class KernelWriterAssembly(KernelWriter):
                     dataIsByte = True
 
                   # Check out 3 regs once , for component 1,2,3 (r = 1,2,3)
-                  if doTailOpt:
+                  if doTailOpt == 1:
                     if r == 1:
                       packInt8Code = Module()
                     destVgprHi = tmpVgprIdx
                   else:
-                    if r == 1:
+                    if doTailOpt == 2:
+                      if r == 1:
+                        packInt8Code = Module()
+                      if r != 0:
+                        destVgprHi = vgprSlot[vgprIdx]
+                        if r >= rStart and r < rEnd and (r % 4 != 0):
+                          vgprIdx = vgprIdx + 1
+                    elif r == 1:
                       packInt8Code = Module()
                       destVgprHi = self.vgprPool.checkOut( int8TempVgpr , 'destVgprHi')
                   regIdx = r // 4
@@ -6401,17 +6474,24 @@ class KernelWriterAssembly(KernelWriter):
                     # In some cards, loading half types into register will zero out
                     # the other half. Therefore we need to load into a separate register
                     # then pack 2 registers into one
-                    if doTailOpt:
+                    if doTailOpt == 1:
                       destVgprHi = tmpVgprIdx
                     else:
+#                      print("r = ", r)
                       if (tP["localWriteInstruction"].blockWidth == 0.5) and (r%2 == 0):
                         numVgprG2L = self.states.a.numVgprG2L if tc == 'A' else self.states.b.numVgprG2L
                         eccBpe = tP["bpeDS"] if kernel["ConvertAfterDS"] else max(tP["bpeGR"], tP["bpe"])
                         eccOffset = _getEccOffset(tP["globalReadInstruction"].totalWidth, bpr=self.states.bpr, bpe=eccBpe, \
                         glvw=tP["glvw"], idx=loopCnt, numVgprG2L=numVgprG2L)
                       else:
-                        destVgprHi = self.vgprPool.checkOut(1, 'destVgprHi')
-
+                        if doTailOpt == 2:
+#                          print("destVgprHi = ", vgprSlot[vgprIdx])
+                          destVgprHi = vgprSlot[vgprIdx]
+                          if r >= rStart and r < rEnd and (r % 2 != 0):
+                            vgprIdx = vgprIdx + 1
+                        else:
+#                          print("ELSE")
+                          destVgprHi = self.vgprPool.checkOut(1, 'destVgprHi')
                   regIdx = r // 2
                 elif dataType.isInt8x4() or dataType.isSingle():
                   regIdx = r
@@ -6424,7 +6504,7 @@ class KernelWriterAssembly(KernelWriter):
                   regIdx = r*4
                 else:
                   printWarning("DataType unsupported")
-                if not doTailOpt:
+                if doTailOpt == 0 or behavior == "LOAD":
                   module.addComment0("g2l=%u, load component %u"%(g2lIdx, r))
 
                 offset = 0
@@ -6491,7 +6571,9 @@ class KernelWriterAssembly(KernelWriter):
                           ldsOffset = ldsInc * tP["nrc"] * (sPerp + tP["nrpv"] * perp) + lscaOffset
                           ldsInc = ldsOffset - prevLdsOffset
                           prevLdsOffset = ldsOffset
-                        module.add(SAddU32(dst=mgpr(0), src0=mgpr(0), src1=ldsInc, comment="Move LDS write address to next line" ))
+#                        if (doTailOpt == 0 or (doTailOpt == 2 and behavior == "LOAD")):
+                        if not (doTailOpt == 2 and behavior == "MERGE"):
+                          module.add(SAddU32(dst=mgpr(0), src0=mgpr(0), src1=ldsInc, comment="Move LDS write address to next line" ))
                     destVgpr=0
                     self.vgprs.globalReadRegisters[tc].append(0)
                   else:
@@ -6526,7 +6608,7 @@ class KernelWriterAssembly(KernelWriter):
 
                   # if hi8=1 or hi16=1 (component 1,2,3 for int8) or (component 1 for half), use the temp destVgprHi
                   # but only when hi16=1 we use the _d16_hi version instruction, see the below visualized int8 comment
-                  if doTailOpt:
+                  if doTailOpt == 1:
                     loadVgpr = destVgprHi
                   else:
                     loadVgpr = destVgprHi if ((hi16 or hi8) and destVgprHi != None) else destVgpr
@@ -6534,7 +6616,7 @@ class KernelWriterAssembly(KernelWriter):
                   if (kernel["ProblemType"]["DataType%s"%tcDataType].isInt8() or kernel["ProblemType"]["DataType%s"%tcDataType].is8bitFloat() or tP["isM"]) and (not self.states.archCaps["HasEccHalf"]):
                     module.add(VMovB32(dst=vgpr(loadVgpr), src=0, comment="set to zero to avoid unexpected value"))
 
-                  if doTailOpt:
+                  if doTailOpt == 1:
                     if behavior == "LOAD" and i == idx and ((r + 1) % numElementsPer4Bytes != 0):
                       #hi16 = False
                       if kLabelsList != None:
@@ -6553,13 +6635,22 @@ class KernelWriterAssembly(KernelWriter):
                       if (r + 1) == (numLoadVectorComp - 1):
                         module.add(SBranch(labelName=jumpLabel.getLabelName(), comment=""))
                   else:
-                    module.add(self.chooseGlobalRead(True, \
-                              bpl, destVgpr=loadVgpr, \
-                              addr0=vgpr(offsetVgpr), addr1=sgpr("Srd%s"%tc, 4), \
-                              soffset=soffset, offset=offset, \
-                              glc=isGlc, slc=isSlc, nt=isNT, lds=isLds, \
-                              hi16=hi16, \
-                              comment=comment))
+                    if (doTailOpt == 0) or (doTailOpt == 2 and behavior == "LOAD" and r >= rStart and r < rEnd):
+#                      print(self.chooseGlobalRead(True, \
+#                                bpl, destVgpr=loadVgpr, \
+#                                addr0=vgpr(offsetVgpr), addr1=sgpr("Srd%s"%tc, 4), \
+#                                soffset=soffset, offset=offset, \
+#                                glc=isGlc, slc=isSlc, nt=isNT, lds=isLds, \
+#                                hi16=hi16, \
+#                                comment=comment))
+                      module.add(self.chooseGlobalRead(True, \
+                                bpl, destVgpr=loadVgpr, \
+                                addr0=vgpr(offsetVgpr), addr1=sgpr("Srd%s"%tc, 4), \
+                                soffset=soffset, offset=offset, \
+                                glc=isGlc, slc=isSlc, nt=isNT, lds=isLds, \
+                                hi16=hi16, \
+                                comment=comment))
+                      loadCnt = loadCnt + 1
                   if unrollMirrorWithSoffset:
                     codeMod = Module("mirrorIdx%u"%loopCnt)
                     codeMod.add(VAddU32(dst=vgpr(offsetVgpr), src0=vgpr(offsetVgpr), src1=soffset_prev, comment="mirror unroll: restore GRO=GRO+SGRO"))
@@ -6610,8 +6701,13 @@ class KernelWriterAssembly(KernelWriter):
                 # V1, V3 -> shift left 8 bits, or 4 regs (pack)
                 # DestV0|=(V1 << 8), DestV0|= V2, DestV0|=(V3 << 8)
                 # Int8 (byte)
+                if doTailOpt == 2 and r >= rStart and r < rEnd:
+                  loadNum = loadNum - 1
+#                print("loadNum = ", loadNum)
                 if dataIsByte and (destVgprHi != None):
-                  if doTailOpt:
+#                  print("In IF: r = ", r)
+                  if doTailOpt == 1:
+#                    print("doTailOpt == 1")
                     if behavior == "MERGE" and i == idx and ((r + 1) % numElementsPer4Bytes != 0):
                       if kLabelsList != None:
                         module.add(kLabelsList.pop())
@@ -6627,22 +6723,26 @@ class KernelWriterAssembly(KernelWriter):
                       if (r + 1) == (numLoadVectorComp - 1):
                         module.add(SBranch(labelName=jumpLabel.getLabelName(), comment=""))
                   else:
-                    # hi8  -> r = 1,3
-                    # hi16 -> r = 2,3
-                    if hi8 or hi16:
-                      # r = 1,2,3, vmcnt needed for one packing
-                      packInt8Code.add(SWaitCnt(vmcnt=(int8TempVgpr-r), comment=""))
-                    if hi8:
-                      # r = 1,3,   shift needed
-                      packInt8Code.add(VLShiftLeftB32(dst=vgpr(destVgprHi), shiftHex=hex(0x8), src=vgpr(destVgprHi), comment="shift left to higher 8 bits"))
-                    if hi8 or hi16:
-                      # r = 1,2,3, packing
-                      packInt8Code.add(VOrB32(dst=vgpr(destVgpr), src0=vgpr(destVgpr), src1=vgpr(destVgprHi), comment="pack a sub 8-bit with dest"))
-                    destVgprHi += 1
+                    if (doTailOpt == 0) or (doTailOpt == 2 and behavior == "MERGE" and r >= rStart and r < rEnd):
+                      # hi8  -> r = 1,3
+                      # hi16 -> r = 2,3
+                      if hi8 or hi16:
+                        # r = 1,2,3, vmcnt needed for one packing
+                        if doTailOpt == 0:
+                          packInt8Code.add(SWaitCnt(vmcnt=(int8TempVgpr-r), comment=""))
+                        else:
+                          packInt8Code.add(SWaitCnt(vmcnt=(loadNum), comment=""))
+                      if hi8:
+                        # r = 1,3,   shift needed
+                        packInt8Code.add(VLShiftLeftB32(dst=vgpr(destVgprHi), shiftHex=hex(0x8), src=vgpr(destVgprHi), comment="shift left to higher 8 bits"))
+                      if hi8 or hi16:
+                        # r = 1,2,3, packing
+                        packInt8Code.add(VOrB32(dst=vgpr(destVgpr), src0=vgpr(destVgpr), src1=vgpr(destVgprHi), comment="pack a sub 8-bit with dest"))
+                      destVgprHi += 1
 
                 # Half
                 elif destVgprHi != None:
-                  if doTailOpt:
+                  if doTailOpt == 1:
                     if behavior == "MERGE" and i == idx and ((r + 1) % numElementsPer4Bytes != 0):
                       if kLabelsList != None:
                         module.add(kLabelsList.pop())
@@ -6658,16 +6758,25 @@ class KernelWriterAssembly(KernelWriter):
                       if (r + 1) == (numLoadVectorComp - 1):
                         module.add(SBranch(labelName=jumpLabel.getLabelName(), comment=""))
                   else:
-                    if r % 2 == 1:
-                      module.add(SWaitCnt(vmcnt=0, comment=""))
-                      if kernel["ProblemType"]["DataType%s"%tcDataType].is8bitFloat():
-                        module.add(VLShiftRightB32(dst=vgpr(destVgprHi), shiftHex=hex(8), src=vgpr(destVgprHi), comment="shift right to lower 8 bits"))
-                      module.add(VOrB32(dst=vgpr(destVgpr), src0=vgpr(destVgpr), src1=vgpr(destVgprHi), comment="HasEccHalf: pack"))
-                      if kernel["ProblemType"]["DataType%s"%tcDataType].is8bitFloat() and (g2lIdx % 2 == 1):
-                        module.add(VLShiftLeftB32(dst=vgpr(destVgpr), shiftHex=hex(16), src=vgpr(destVgpr), comment="shift left to higher 16 bits"))
+                    if (doTailOpt == 0) or (doTailOpt == 2 and behavior == "MERGE" and r >= rStart and r < rEnd):
+                      if r % 2 == 1:
+                        if doTailOpt == 0:
+                          module.add(SWaitCnt(vmcnt=0, comment=""))
+                        else:
+#                          print(SWaitCnt(vmcnt=(loadNum), comment=""))
+                          module.add(SWaitCnt(vmcnt=(loadNum), comment=""))
+                        if kernel["ProblemType"]["DataType%s"%tcDataType].is8bitFloat():
+#                          print(VLShiftRightB32(dst=vgpr(destVgprHi), shiftHex=hex(8), src=vgpr(destVgprHi), comment="shift right to lower 8 bits"))
+                          module.add(VLShiftRightB32(dst=vgpr(destVgprHi), shiftHex=hex(8), src=vgpr(destVgprHi), comment="shift right to lower 8 bits"))
+#                        print(VOrB32(dst=vgpr(destVgpr), src0=vgpr(destVgpr), src1=vgpr(destVgprHi), comment="HasEccHalf: pack"))
+                        module.add(VOrB32(dst=vgpr(destVgpr), src0=vgpr(destVgpr), src1=vgpr(destVgprHi), comment="HasEccHalf: pack"))
+                        if kernel["ProblemType"]["DataType%s"%tcDataType].is8bitFloat() and (g2lIdx % 2 == 1):
+#                          print(VLShiftLeftB32(dst=vgpr(destVgpr), shiftHex=hex(16), src=vgpr(destVgpr), comment="shift left to higher 16 bits"))
+                          module.add(VLShiftLeftB32(dst=vgpr(destVgpr), shiftHex=hex(16), src=vgpr(destVgpr), comment="shift left to higher 16 bits"))
                 # For half (bf16). Note: for int8, we will checkin after loading all components
                 if (destVgprHi != None) and (not dataIsByte):
-                  if not doTailOpt:
+#                  if not (doTailOpt == 1 or doTailOpt == 2):
+                  if doTailOpt == 0:
                     self.vgprPool.checkIn(destVgprHi)
                   destVgprHi = None
 
@@ -6683,8 +6792,12 @@ class KernelWriterAssembly(KernelWriter):
               # we do the 3 packs, and checking the 3 extra vgprs after loading all components
               if dataIsByte and int8TempVgpr:
                 assert packInt8Code != None and destVgprHi != None
+#                print("Ready to add: packInt8Code = ", packInt8Code)
+#                print(packInt8Code)
                 module.add(packInt8Code)
-                if not doTailOpt:
+#                if not (doTailOpt == 1 or doTailOpt == 2):
+                if doTailOpt == 0:
+#                  print("checkin ", (destVgprHi - int8TempVgpr))
                   self.vgprPool.checkIn(destVgprHi - int8TempVgpr)
                 destVgprHi = None
 
@@ -6723,29 +6836,192 @@ class KernelWriterAssembly(KernelWriter):
                 module.add(VOrB32(dst=vgpr(destVgprLow), src0=vgpr(destVgprLow), src1=vgpr(destVgprHi), comment="pack 2 bytes"))
                 self.vgprPool.checkIn(destVgprHi)
                 destVgprHi = None
+#      print("@@@ after tc ", tc, ": ", self.vgprs.globalReadRegisters[tc])
+      return loadCnt, self.vgprs.globalReadRegisters[tc], directToLdsLoads
+    loadCnt, vgprList, directToLdsLoads = globalReadGuardKBody(tP, tmpVgpr, kLabelsList, behavior, jumpLabel, numElementsPer4Bytes, \
+                                             kSgpr, doTailOpt, vgprSlot, periodParam, loadNum, preDirectToLdsLoads)
+    if doTailOpt == 0 or doTailOpt == 1 or  (doTailOpt == 2 and finalLoop == 1 and behavior == "MERGE"):
+      if kernel["ProblemType"]["Sparse"] and not kernel["DirectToVgprSparseMetadata"]:
+        if tP["is_sparse"]:
+            globalReadGuardKBody(tP["tpsMetadata"])
+  
+      if self.db["ConservativeWaitCnt"] & 0x1:
+          module.add(SBarrier(comment="debug"))
+          module.add(SWaitCnt(lgkmcnt=0, vmcnt=0, vscnt=0, comment=""))
+          module.add(SBarrier(comment="debug"))
+          #module.add(self.getCmpAssert(self.asmAssert.lt, vgpr("Serial"), 64)) # examine second wavefront
+  
+      # TODO - can remove one of these m0 restores if A and B both TLU
+      if kernel["DirectToLds%s"%tP["tensorChar"]]:
+        module.add(SMovB32(dst=mgpr(0), src=hex(kernel["LdsNumBytes"]), \
+            comment="Restore LDS clamp at %u bytes"%(kernel["LdsNumBytes"])))
+  
+      if not kernel["BufferLoad"]:
+        self.vgprPool.checkIn(maxAddrVgpr)
+        self.vgprPool.checkIn(bpeVgpr)
+        self.vgprPool.checkIn(zeroVgpr)
 
-    globalReadGuardKBody(tP, tmpVgpr, kLabelsList, behavior, jumpLabel, numElementsPer4Bytes, kSgpr, doTailOpt)
-    if kernel["ProblemType"]["Sparse"] and not kernel["DirectToVgprSparseMetadata"]:
-      if tP["is_sparse"]:
-          globalReadGuardKBody(tP["tpsMetadata"])
+#    if behavior == "LOAD" and doTailOpt == 2:
+    if doTailOpt == 2:
+      return module, loadCnt, vgprList, directToLdsLoads
+    else:
+      return module
 
-    if self.db["ConservativeWaitCnt"] & 0x1:
-        module.add(SBarrier(comment="debug"))
-        module.add(SWaitCnt(lgkmcnt=0, vmcnt=0, vscnt=0, comment=""))
-        module.add(SBarrier(comment="debug"))
-        #module.add(self.getCmpAssert(self.asmAssert.lt, vgpr("Serial"), 64)) # examine second wavefront
+  def doTailLoopOpt(self, kernel, tP):
+    module = Module("doTailLoop")
+#    print("doTailLoopOpt")
+    tc = tP["tensorChar"]
+#    print("DTVA = ", kernel["DirectToVgprA"])
+#    print("DTVB = ", kernel["DirectToVgprB"])
+#    print("tc = ", tc)
+    orinrp = tP["nrp"]
+    orinrpv = tP["nrpv"]
+    orinrc = tP["nrc"]
+    orinrcv_div_nrcvpi = tP["nrcv"] // tP["nrcvpi"]
+    loadWidth = tP["globalReadInstruction"].totalWidth
+    oriNumLoadVectorComp = (int(loadWidth*self.states.bpr//tP["bpeGR"]))
+#    print("ori nrp = ", orinrp)
+#    print("ori nrpv = ", orinrpv)
+#    print("ori nrc = ", orinrc)
+#    print("ori nrcv_div_nrcvpi = ", orinrcv_div_nrcvpi)
+#    print("oriNumLoadVectorComp = ", oriNumLoadVectorComp)
+#    print("loadWidth = ", loadWidth)
+#    print("self.states.bpr = ", self.states.bpr)
+#    print("r = ", oriNumLoadVectorComp)
+#    totalVgprNum = (tP["nrp"] * tP["nrpv"] * tP["nrc"] * (tP["nrcv"] // tP["nrcvpi"])) * (oriNumLoadVectorComp - ceil(oriNumLoadVectorComp / float(4)))
+    numElementsPerLoad = 1
+    glvwWorkaround = 8 * kernel["ProblemType"]["DataType"].numRegisters()
+    dataType = kernel["ProblemType"]["DataType"] if tP["glvw"] < glvwWorkaround else kernel["ProblemType"]["DataType%s"%tc]
+    if dataType.isHalf() or dataType.isBFloat16():
+      if tP["glvw"]>1 and kernel["AssertSummationElementMultiple"] % 2 == 0:
+        # Pack two FP16 values into a single load dword x2
+#        print("numElementsPerLoad")
+        numElementsPerLoad = 2
+        oriNumLoadVectorComp = oriNumLoadVectorComp // 2
+    totalVgprNum = (tP["nrp"] * tP["nrpv"] * tP["nrc"] * (tP["nrcv"] // tP["nrcvpi"])) * (oriNumLoadVectorComp)
+    if kernel["ProblemType"]["Gradient"] and kernel["ProblemType"]["UseBias"] and (kernel["ProblemType"]["BiasSrc"] == "A" or kernel["ProblemType"]["BiasSrc"] == "B"):
+      totalVgprNum += 1 # FIX
+    if (tc == "A" and kernel["DirectToVgprA"]) or (tc == "B" and kernel["DirectToVgprB"]):
+      totalVgprNum = 0
+#    print("totalVgprNum result = ", totalVgprNum)
+#    print("totalVgprNum = ", totalVgprNum)
+#    print("oriNumLoadVectorComp = ", oriNumLoadVectorComp)
+    numLoadVectorComp = oriNumLoadVectorComp
+    nrp = orinrp
+    nrpv = orinrpv
+    nrc = orinrc
+    nrcv_div_nrcvpi = orinrcv_div_nrcvpi
+    currentSize = self.vgprPool.size()
+    VgprSlot = []
+    VgprSlotBk = []
 
-    # TODO - can remove one of these m0 restores if A and B both TLU
-    if kernel["DirectToLds%s"%tP["tensorChar"]]:
-      module.add(SMovB32(dst=mgpr(0), src=hex(kernel["LdsNumBytes"]), \
-          comment="Restore LDS clamp at %u bytes"%(kernel["LdsNumBytes"])))
 
-    if not kernel["BufferLoad"]:
-      self.vgprPool.checkIn(maxAddrVgpr)
-      self.vgprPool.checkIn(bpeVgpr)
-      self.vgprPool.checkIn(zeroVgpr)
+    maxVgpr = 50
+    while (len(VgprSlot) < totalVgprNum and len(VgprSlot) <= maxVgpr):
+#    while (len(VgprSlot) < totalVgprNum):
+      tempVgpr = self.vgprPool.checkOut(1,"")
+      if tempVgpr >= currentSize:
+        self.vgprPool.checkIn(tempVgpr)
+        break
+      if kernel["ProblemType"]["Gradient"] and kernel["ProblemType"]["UseBias"] and (kernel["ProblemType"]["BiasSrc"] == "A" or kernel["ProblemType"]["BiasSrc"] == "B"):
+        if tempVgpr != self.states.bias.startVgprValu:
+          VgprSlot.append(tempVgpr)
+      else:
+        VgprSlot.append(tempVgpr)
+      VgprSlotBk.append(tempVgpr)
 
+    loopNum = 1
+#    print("len(VgprSlot) = ", len(VgprSlot))
+#    print("VgprSlotBk = ", VgprSlotBk)
+#    print("VgprSlot = ", VgprSlot)
+#    print("nrp = ", nrp)
+#    print("nrpv = ", nrpv)
+#    print("nrc = ", nrc)
+#    print("nrcv_div_nrcvpi = ", nrcv_div_nrcvpi)
+    finalVgprNum = totalVgprNum
+    while (finalVgprNum > len(VgprSlot) and totalVgprNum > 0):
+      if nrp > 1:
+        nrp -= 1
+      elif nrpv > 1:
+        nrpv -=  1
+      elif nrc > 1:
+        nrc -= 1
+      elif nrcv_div_nrcvpi > 1:
+        nrcv_div_nrcvpi -= 1
+      else:
+        numLoadVectorComp = numLoadVectorComp - 1
+#      finalVgprNum = (nrp * nrpv * nrc * nrcv_div_nrcvpi) * (numLoadVectorComp - ceil(numLoadVectorComp / float(4)))
+      finalVgprNum = (nrp * nrpv * nrc * nrcv_div_nrcvpi) * (numLoadVectorComp)
+#    print("nrp = ", nrp)
+#    print("nrpv = ", nrpv)
+#    print("nrc = ", nrc)
+#    print("nrcv_div_nrcvpi = ", nrcv_div_nrcvpi)
+#    print("finalVgprNum = ", finalVgprNum)
+#    print("final numLoadVectorComp = ", numLoadVectorComp)
+
+    nrpLoopNum = ceil(tP["nrp"] / nrp)
+    nrpvLoopNum = ceil(tP["nrpv"] / nrpv)
+    nrcLoopNum = ceil(tP["nrc"] / nrc)
+    nrcv_div_nrcvpiLoopNum = ceil(tP["nrcv"] // tP["nrcvpi"] / nrcv_div_nrcvpi)
+#    print("old numLoadVectorComp = ", (int(loadWidth*self.states.bpr//tP["bpeGR"])))
+#    loadVectorCompLoopNum = ceil((int(loadWidth*self.states.bpr//tP["bpeGR"])) / numLoadVectorComp)
+    loadVectorCompLoopNum = int(ceil(oriNumLoadVectorComp / numLoadVectorComp))
+    totalLoopNum = nrpLoopNum * nrpvLoopNum * nrcLoopNum * nrcv_div_nrcvpiLoopNum * loadVectorCompLoopNum
+#    print("loop num: ", nrpLoopNum, nrpvLoopNum, nrcLoopNum, nrcv_div_nrcvpiLoopNum, loadVectorCompLoopNum)
+    i = 0
+    globalReadRegisters = []
+    directToLdsLoads = 0
+    finalLoop = 0
+
+    for nrp_idx in range(nrpLoopNum):
+      for nrpv_idx in range(nrpvLoopNum):
+        for nrc_idx in range(nrcLoopNum):
+          for nrcv_div_nrcvpi_idx in range(nrcv_div_nrcvpiLoopNum):
+            for loadVectorComp_idx in range(loadVectorCompLoopNum):
+              firstLoop = 0
+#              print("@@ Loop Num = ", i)
+              if numElementsPerLoad == 2:
+                periodParam = [nrp_idx * nrp, min(orinrp, (nrp_idx + 1) * nrp), \
+                               nrpv_idx * nrpv, min(orinrpv, (nrpv_idx + 1) * nrpv), \
+                               nrc_idx * nrc, min(orinrc, (nrc_idx + 1) * nrc), \
+                               nrcv_div_nrcvpi_idx * nrcv_div_nrcvpi, min(orinrcv_div_nrcvpi, (nrcv_div_nrcvpi_idx + 1) * nrcv_div_nrcvpi), \
+                               loadVectorComp_idx * numLoadVectorComp * 2, min(oriNumLoadVectorComp * 2, (loadVectorComp_idx + 1) * numLoadVectorComp * 2)]
+              else:
+                periodParam = [nrp_idx * nrp, min(orinrp, (nrp_idx + 1) * nrp), \
+                               nrpv_idx * nrpv, min(orinrpv, (nrpv_idx + 1) * nrpv), \
+                               nrc_idx * nrc, min(orinrc, (nrc_idx + 1) * nrc), \
+                               nrcv_div_nrcvpi_idx * nrcv_div_nrcvpi, min(orinrcv_div_nrcvpi, (nrcv_div_nrcvpi_idx + 1) * nrcv_div_nrcvpi), \
+                               loadVectorComp_idx * numLoadVectorComp, min(oriNumLoadVectorComp, (loadVectorComp_idx + 1) * numLoadVectorComp)]
+#              print(periodParam)
+              if i == 0:
+                firstLoop = 1
+#              print("LOAD")
+              imod, loadCnt, vgprList, directToLdsLoads = self.globalReadDo(kernel, 2, tP, -1, 0, 2, 0, None, None,\
+                                                    [], "LOAD", None, VgprSlot, periodParam, 0, directToLdsLoads, firstLoop, finalLoop)
+
+              module.add(imod)
+#              print(imod)
+#              print("-----------------------")
+              globalReadRegisters = globalReadRegisters + vgprList
+#              print("loadCnt = ", loadCnt)
+              if i == totalLoopNum - 1:
+                finalLoop = 1
+#              print("MERGE")
+              imod, loadCnt, vgprList, directToLdsLoads = self.globalReadDo(kernel, 2, tP, -1, 0, 2, 0, None, None,\
+                                                    [], "MERGE", None, VgprSlot, periodParam, loadCnt, directToLdsLoads, firstLoop, finalLoop)
+              module.add(imod)
+#              print(imod)
+#              print("-----------------------")
+              i += 1
+
+#    print("Free VgprSlot: ", VgprSlot)
+    self.vgprs.globalReadRegisters[tc] = globalReadRegisters
+    while VgprSlotBk:
+      tempVgpr = VgprSlotBk.pop(0)
+      self.vgprPool.checkIn(tempVgpr)
+#    print("Done")
     return module
+
 
   ##############################################################################
   # DirectToLds M0 update: Do It A/B
@@ -6784,8 +7060,12 @@ class KernelWriterAssembly(KernelWriter):
   ##############################################################################
   # Global Read: Do It A/B
   ##############################################################################
-  def globalReadDo(self, kernel, mode, tP, unrollLoopIdx=-1, g2lBufIdx=0):
+  def globalReadDo(self, kernel, mode, tP, unrollLoopIdx=-1, g2lBufIdx=0, \
+                   doTailOpt = 0, idx = 0, jumpLabel = None, tmpVgpr = None, \
+                   kLabelsList = [], behavior = "", kSgpr = None, vgprSlot = [], \
+                   periodParam = [], loadNum = 0, directToLdsLoads = 0, firstLoop = 0, finalLoop = 0):
     tc = tP["tensorChar"]
+#    print("tc = ", tc)
     problemType = self.states.kernel["ProblemType"]
     imod = StructuredModule("globalReadDo%s_%u"%(tc,mode))
     if not self.do["GlobalRead%s"%tP["tensorChar"]]: return imod
@@ -6814,18 +7094,27 @@ class KernelWriterAssembly(KernelWriter):
       tc1st = 'B'
 
     if tc == tc1st and (kernel["DirectToLdsA"] or kernel["DirectToLdsB"]) and not kernel["PrefetchGlobalRead"]==2:
-      # generate local read wait for DirectToLds except for PrefetchGlobalRead=2 (for PGR=2, generate wait after m0 value setting)
-      imod.header.addComment0("before DirectToLds load, ensure prior ds_reads have finished")
-      if (kernel["DirectToVgprA"] or kernel["DirectToVgprB"]) and not guardK:
-        # no need to generate sync here if DirectToVgpr is enabled and not tail loop
-        imod.header.add(SWaitCnt(lgkmcnt=0, comment="wait for LDS read/write"))
-      else:
-        imod.header.add(self._syncThreads(kernel))
+      if doTailOpt == 0 or (doTailOpt == 2 and behavior == "LOAD" and firstLoop == 1):
+        # generate local read wait for DirectToLds except for PrefetchGlobalRead=2 (for PGR=2, generate wait after m0 value setting)
+        imod.header.addComment0("before DirectToLds load, ensure prior ds_reads have finished")
+        if (kernel["DirectToVgprA"] or kernel["DirectToVgprB"]) and not guardK:
+          # no need to generate sync here if DirectToVgpr is enabled and not tail loop
+          imod.header.add(SWaitCnt(lgkmcnt=0, comment="wait for LDS read/write"))
+        else:
+          imod.header.add(self._syncThreads(kernel))
 
 
     if guardK:
-      imod.middle.add(self.globalReadGuardK(kernel, tP))
-      return imod
+      if doTailOpt == 0:
+        imod.middle.add(self.globalReadGuardK(kernel, tP))
+        return imod
+      else:
+        module, loadCnt, vgprList, directToLdsLoads = self.globalReadGuardK(kernel, tP, \
+                                              doTailOpt, idx, jumpLabel, tmpVgpr, \
+                                              kLabelsList, behavior, kSgpr, vgprSlot, \
+                                               periodParam, loadNum, directToLdsLoads, finalLoop)
+        imod.middle.add(module)
+        return imod, loadCnt, vgprList, directToLdsLoads
 
     # else not-guardK below:
 
@@ -7495,10 +7784,21 @@ class KernelWriterAssembly(KernelWriter):
             paramList = []
             numsOfRegister = []
             globalBlockWidth = tP["globalReadInstruction"].totalWidth
+#            print("tc = ", tc, ", numBlocks = ", numBlocks)
+#            print("regs: ", self.vgprs.globalReadRegisters[tc])
+#            print("destVgprPrefix = ", destVgprPrefix, ", blockWidth = ", blockWidth)
             for _ in range(0, numBlocks):
               # FIXME: In the future all registers should pass from global read instead of recalculate them
               if globalBlockWidth == blockWidth and tP["glvw"] == 1:
+#                print("destVgprPrefix = ", destVgprPrefix)
+#                print("tc = ", tc, ", i", i)
+#                print(self.vgprs.globalReadRegisters[tc][i])
+#                print("blockWidth = ", blockWidth)
+#                print(vgpr(destVgprPrefix + "+%u"%(self.vgprs.globalReadRegisters[tc][i]), blockWidth))
+#                print("i = ", i)
+#                print("_ = ", _)
                 paramList.append(vgpr(destVgprPrefix + "+%u"%(self.vgprs.globalReadRegisters[tc][i]), blockWidth))
+#                print("DONE")
               elif blockWidth == 1:
                 paramList.append(vgpr(destVgprPrefix + "+%u"%(g2lIdx)))
                 numsOfRegister.append(1)
