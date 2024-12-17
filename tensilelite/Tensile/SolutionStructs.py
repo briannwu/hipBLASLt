@@ -1391,8 +1391,7 @@ class Solution(collections.abc.Mapping):
     state["tailLoopOptB"] = True
     #(state["LocalSplitU"] > 1)
     if (tuple(state["ISA"]) != (9, 4, 2)) or \
-       (state["ProblemType"]["Sparse"]) or \
-       (state["LocalSplitU"] > 1):
+       (state["ProblemType"]["Sparse"]):
       state["tailLoopOptA"] = False
       state["tailLoopOptB"] = False
 

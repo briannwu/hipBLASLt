@@ -2661,7 +2661,7 @@ class KernelWriter(metaclass=abc.ABCMeta):
       moduleTmp = self.directToLdsM0Update(kernel, 1, tensorParameters2nd)
       module.add(replaceHolder(moduleTmp, 0))
       module.addComment1("Tail global read %s"%tc2)
-      if globalReadMode2nd and (globalReadMode2nd == 2):
+      if tailLoopOpt2nd and (globalReadMode2nd == 2):
         module.add(self.doTailLoopOpt(kernel, tensorParameters2nd))
       else:
         module.add(self.globalReadDo(kernel, globalReadMode2nd, tensorParameters2nd))
