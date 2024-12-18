@@ -2638,16 +2638,18 @@ class KernelWriter(metaclass=abc.ABCMeta):
         tailLoopOpt1st, tailLoopOpt2nd = tailLoopOpt2nd, tailLoopOpt1st
         tc1, tc2 = tc2, tc1
 
-
       globalReadMode1st = 2 if (((tensorParameters1st["glvw"] * tensorParameters1st["bpeGR"]) < 4) or \
-                               tailLoopOpt1st == False) else 0
+                               tailLoopOpt1st == False) else 3
       globalReadMode2nd = 2 if (((tensorParameters2nd["glvw"] * tensorParameters2nd["bpeGR"]) < 4) or \
-                               tailLoopOpt2nd == False) else 0
+                               tailLoopOpt2nd == False) else 3
 
       # if we have swizzled A or B, then size-K is already guarded, we don't have to used guarded-k GR again
       hasSwizzled = tensorParametersA["isSwizzled"] or tensorParametersB["isSwizzled"]
       globalReadMode1st = 0 if hasSwizzled else globalReadMode1st
       globalReadMode2nd = 0 if hasSwizzled else globalReadMode2nd
+
+
+
 
       module.addComment1("Update M0 for DTLDS")
       moduleTmp = self.directToLdsM0Update(kernel, 1, tensorParameters1st)
@@ -2668,20 +2670,22 @@ class KernelWriter(metaclass=abc.ABCMeta):
 
       doA = False
       doB = False
-      if globalReadMode1st == 0:
+      if globalReadMode1st == 3:
         if tc1 == 'A':
           doA = True if (tensorParameters1st["bpeGR"] % 4 != 0) and (not kernel["ProblemType"]["TLU%s"%(tc1)]) else False
         else:
           doB = True if (tensorParameters1st["bpeGR"] % 4 != 0) and (not kernel["ProblemType"]["TLU%s"%(tc1)]) else False
-      if globalReadMode2nd == 0:
+      if globalReadMode2nd == 3:
         if tc2 == 'A':
           doA = True if (tensorParameters2nd["bpeGR"] % 4 != 0) and (not kernel["ProblemType"]["TLU%s"%(tc2)]) else False
         else:
           doB = True if (tensorParameters2nd["bpeGR"] % 4 != 0) and (not kernel["ProblemType"]["TLU%s"%(tc2)]) else False
 
       if doA or doB:
-        module.add(self.tailLoopGlobalRead(kernel, tensorParameters1st, tensorParameters2nd, doA, doB))
-
+        if tc1 == 'A':
+          module.add(self.tailLoopGlobalRead(kernel, tensorParameters1st, tensorParameters2nd, doA, doB))
+        else:
+          module.add(self.tailLoopGlobalRead(kernel, tensorParameters2nd, tensorParameters1st, doA, doB))
       module.add(self._wait(kernel, tensorParameters1st, tensorParameters2nd, 0, -1, -1, "2wait for global read"))
       module.add(self._syncThreads(kernel))
 
