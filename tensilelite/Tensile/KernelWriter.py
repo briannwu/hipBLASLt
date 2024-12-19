@@ -2647,14 +2647,14 @@ class KernelWriter(metaclass=abc.ABCMeta):
       hasSwizzled = tensorParametersA["isSwizzled"] or tensorParametersB["isSwizzled"]
       globalReadMode1st = 0 if hasSwizzled else globalReadMode1st
       globalReadMode2nd = 0 if hasSwizzled else globalReadMode2nd
-
-
-
+      print("globalReadMode1st = ", globalReadMode1st)
+      print("globalReadMode2nd = ", globalReadMode2nd)
 
       module.addComment1("Update M0 for DTLDS")
       moduleTmp = self.directToLdsM0Update(kernel, 1, tensorParameters1st)
       module.add(replaceHolder(moduleTmp, 0))
       module.addComment1("Tail global read %s"%tc1)
+      print("for A")
       if tailLoopOpt1st and (globalReadMode1st == 2):
         module.add(self.doTailLoopOpt(kernel, tensorParameters1st))
       else:
@@ -2663,6 +2663,7 @@ class KernelWriter(metaclass=abc.ABCMeta):
       moduleTmp = self.directToLdsM0Update(kernel, 1, tensorParameters2nd)
       module.add(replaceHolder(moduleTmp, 0))
       module.addComment1("Tail global read %s"%tc2)
+      print("for B")
       if tailLoopOpt2nd and (globalReadMode2nd == 2):
         module.add(self.doTailLoopOpt(kernel, tensorParameters2nd))
       else:
