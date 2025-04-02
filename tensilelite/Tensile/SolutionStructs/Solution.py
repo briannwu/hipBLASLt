@@ -530,10 +530,10 @@ class Solution(collections.abc.Mapping):
        (state["UseDotInstruction"]):
       state["tailLoopOptA"] = False
       state["tailLoopOptB"] = False
-    if (state["DirectToVgprA"]):
-      state["tailLoopOptA"] = False
-    if (state["DirectToVgprB"]):
-      state["tailLoopOptB"] = False
+#    if (state["DirectToVgprA"]):
+#      state["tailLoopOptA"] = False
+#    if (state["DirectToVgprB"]):
+#      state["tailLoopOptB"] = False
 
     # reorder globalread instructions if dtv and TN cases. (along coalesced dim)
     if state["ScheduleIterAlg"] == 3:

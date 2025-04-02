@@ -4785,20 +4785,38 @@ class KernelWriterAssembly(KernelWriter):
         tmpSgprA = tmpSgprQregA
       else:
         tmpSgprA = tmpSgprA2
-      imod.add(SSubU32(dst=sgpr(tmpSgprA1), src0=sgpr("SizeI"), src1=1))
-      imod.add(scalarStaticDivideAndRemainder(tmpSgprA, tmpSgprA, tmpSgprA1, \
-                                              kernel["MacroTile0"], \
-                                              RegisterPoolResource(tmpSgpr, 2), 1))
-      if (kernel["WaveSeparateGlobalReadA"] > 0):
-        imod.add(scalarStaticDivideAndRemainder(tmpSgprQregA, tmpSgprQregA, tmpSgprA, \
-                                                (nlpA * lspA), \
+      if kernel["DirectToVgprA"]:
+        imod.add(SSubU32(dst=sgpr(tmpSgprA1), src0=sgpr("SizeI"), src1=1))
+        imod.add(scalarStaticDivideAndRemainder(tmpSgprA, tmpSgprA, tmpSgprA1, \
+                                                kernel["MacroTile0"], \
                                                 RegisterPoolResource(tmpSgpr, 2), 1))
-      imod.add(SLShiftRightB32(dst=sgpr(tmpSgprQregA), shiftHex=hex(log2(lspA)), \
-                               src=sgpr(tmpSgprQregA), comment="divide lsp"))
-      imod.add(SMulI32(dst=sgpr(tmpSgprQregA), src0=sgpr(tmpSgprQregA), src1=nlcA, comment=""))
-      imod.add(SLShiftRightB32(dst=sgpr(tmpSgpr), shiftHex=hex(log2(lscA)), \
-                               src=sgpr("LoopCounterL"), comment=""))
-      imod.add(SAddI32(dst=sgpr(tmpSgprQregA), src0=sgpr(tmpSgprQregA), src1=sgpr(tmpSgpr), comment=""))
+        print("nlpA = ", nlpA)
+        print("lspA = ", lspA)
+        imod.add(scalarStaticDivideAndRemainder(tmpSgprQregA, tmpSgprA, tmpSgprA, \
+                                                  (lspA), \
+                                                  RegisterPoolResource(tmpSgpr, 2), 1))
+#        imod.add(scalarStaticDivideAndRemainder(tmpSgprQregA, tmpSgprA, tmpSgprA1, \
+#                                                nlpA, \
+#                                                RegisterPoolResource(tmpSgpr, 2), 1))
+        imod.add(SLShiftRightB32(dst=sgpr(tmpSgpr), shiftHex=hex(log2(lscA)), \
+                                 src=sgpr("LoopCounterL"), comment=""))
+        imod.add(SMulI32(dst=sgpr(tmpSgpr), src0=sgpr(tmpSgpr), src1=nlpA, comment=""))
+        imod.add(SAddI32(dst=sgpr(tmpSgprQregA), src0=sgpr(tmpSgprQregA), src1=sgpr(tmpSgpr), comment=""))
+      else:
+        imod.add(SSubU32(dst=sgpr(tmpSgprA1), src0=sgpr("SizeI"), src1=1))
+        imod.add(scalarStaticDivideAndRemainder(tmpSgprA, tmpSgprA, tmpSgprA1, \
+                                                kernel["MacroTile0"], \
+                                                RegisterPoolResource(tmpSgpr, 2), 1))
+        if (kernel["WaveSeparateGlobalReadA"] > 0):
+          imod.add(scalarStaticDivideAndRemainder(tmpSgprQregA, tmpSgprQregA, tmpSgprA, \
+                                                  (nlpA * lspA), \
+                                                  RegisterPoolResource(tmpSgpr, 2), 1))
+        imod.add(SLShiftRightB32(dst=sgpr(tmpSgprQregA), shiftHex=hex(log2(lspA)), \
+                                 src=sgpr(tmpSgprQregA), comment="divide lsp"))
+        imod.add(SMulI32(dst=sgpr(tmpSgprQregA), src0=sgpr(tmpSgprQregA), src1=nlcA, comment=""))
+        imod.add(SLShiftRightB32(dst=sgpr(tmpSgpr), shiftHex=hex(log2(lscA)), \
+                                 src=sgpr("LoopCounterL"), comment=""))
+        imod.add(SAddI32(dst=sgpr(tmpSgprQregA), src0=sgpr(tmpSgprQregA), src1=sgpr(tmpSgpr), comment=""))
       imod.add(scalarStaticDivideAndRemainder(tmpSgpr, tmpSgprA1, "SizesSum+%u"%loopIdx, \
                                               kernel["DepthU"], RegisterPoolResource(tmpSgpr, 2), 2))
     # for B
@@ -4807,20 +4825,39 @@ class KernelWriterAssembly(KernelWriter):
         tmpSgprB = tmpSgprQregB
       else:
         tmpSgprB = tmpSgprB2
-      imod.add(SSubU32(dst=sgpr(tmpSgprB1), src0=sgpr("SizeJ"), src1=1))
-      imod.add(scalarStaticDivideAndRemainder(tmpSgprB, tmpSgprB, tmpSgprB1, \
-                                              kernel["MacroTile1"], \
-                                              RegisterPoolResource(tmpSgpr, 2), 1))
-      if (kernel["WaveSeparateGlobalReadB"] > 0):
-        imod.add(scalarStaticDivideAndRemainder(tmpSgprQregB, tmpSgprQregB, tmpSgprB, \
-                                               (nlpB * lspB), \
-                                               RegisterPoolResource(tmpSgpr, 2), 1))
-      imod.add(SLShiftRightB32(dst=sgpr(tmpSgprQregB), shiftHex=hex(log2(lspB)), \
-                               src=sgpr(tmpSgprQregB), comment="divide lsp"))
-      imod.add(SMulI32(dst=sgpr(tmpSgprQregB), src0=sgpr(tmpSgprQregB), src1=nlcB, comment=""))
-      imod.add(SLShiftRightB32(dst=sgpr(tmpSgpr), shiftHex=hex(log2(lscB)), \
-                               src=sgpr("LoopCounterL"), comment=""))
-      imod.add(SAddI32(dst=sgpr(tmpSgprQregB), src0=sgpr(tmpSgprQregB), src1=sgpr(tmpSgpr), comment=""))
+      if kernel["DirectToVgprB"]:
+        imod.add(SSubU32(dst=sgpr(tmpSgprB1), src0=sgpr("SizeJ"), src1=1))
+        imod.add(scalarStaticDivideAndRemainder(tmpSgprB, tmpSgprB, tmpSgprB1, \
+                                                kernel["MacroTile1"], \
+                                                RegisterPoolResource(tmpSgpr, 2), 1))
+#        print("nlpA = ", nlpA)
+#        print("lspA = ", lspA)
+        imod.add(scalarStaticDivideAndRemainder(tmpSgprQregB, tmpSgprB, tmpSgprB, \
+                                                  (lspB), \
+                                                  RegisterPoolResource(tmpSgpr, 2), 1))
+#        imod.add(scalarStaticDivideAndRemainder(tmpSgprQregB, tmpSgprB, tmpSgprB1, \
+#                                                nlpB, \
+#                                                RegisterPoolResource(tmpSgpr, 2), 1))
+
+        imod.add(SLShiftRightB32(dst=sgpr(tmpSgpr), shiftHex=hex(log2(lscB)), \
+                                 src=sgpr("LoopCounterL"), comment=""))
+        imod.add(SMulI32(dst=sgpr(tmpSgpr), src0=sgpr(tmpSgpr), src1=nlpB, comment=""))
+        imod.add(SAddI32(dst=sgpr(tmpSgprQregB), src0=sgpr(tmpSgprQregB), src1=sgpr(tmpSgpr), comment=""))
+      else:
+        imod.add(SSubU32(dst=sgpr(tmpSgprB1), src0=sgpr("SizeJ"), src1=1))
+        imod.add(scalarStaticDivideAndRemainder(tmpSgprB, tmpSgprB, tmpSgprB1, \
+                                                kernel["MacroTile1"], \
+                                                RegisterPoolResource(tmpSgpr, 2), 1))
+        if (kernel["WaveSeparateGlobalReadB"] > 0):
+          imod.add(scalarStaticDivideAndRemainder(tmpSgprQregB, tmpSgprQregB, tmpSgprB, \
+                                                 (nlpB * lspB), \
+                                                 RegisterPoolResource(tmpSgpr, 2), 1))
+        imod.add(SLShiftRightB32(dst=sgpr(tmpSgprQregB), shiftHex=hex(log2(lspB)), \
+                                 src=sgpr(tmpSgprQregB), comment="divide lsp"))
+        imod.add(SMulI32(dst=sgpr(tmpSgprQregB), src0=sgpr(tmpSgprQregB), src1=nlcB, comment=""))
+        imod.add(SLShiftRightB32(dst=sgpr(tmpSgpr), shiftHex=hex(log2(lscB)), \
+                                 src=sgpr("LoopCounterL"), comment=""))
+        imod.add(SAddI32(dst=sgpr(tmpSgprQregB), src0=sgpr(tmpSgprQregB), src1=sgpr(tmpSgpr), comment=""))
       imod.add(scalarStaticDivideAndRemainder(tmpSgpr, tmpSgprB1, "SizesSum+%u"%loopIdx, \
                                               kernel["DepthU"], RegisterPoolResource(tmpSgpr, 2), 2))
     # A
@@ -7384,6 +7421,10 @@ class KernelWriterAssembly(KernelWriter):
       if optParams != None:
         jumpLabel = optParams.jumpLabel
         idx = optParams.idx
+#        print("before idx = ", idx)
+#        idx_tmp = idx % 2
+#        idx = (idx >> 1) + (idx_tmp) * 4
+#        print("after idx = ", idx)
         tmpVgpr = optParams.tmpVgpr
         kLabelsList = optParams.kLabelsList
         behavior = optParams.behavior
@@ -7438,6 +7479,11 @@ class KernelWriterAssembly(KernelWriter):
       sParaEnd = periodParam[7] if doTailOpt == 2 else (tP["nrcv"]//tP["nrcvpi"])
       rStart = periodParam[8] if doTailOpt == 2 else 0
       rEnd = periodParam[9] if doTailOpt == 2 else 0
+
+#      if tc != "Metadata" and kernel["DirectToVgpr%s"%tc] and kernel["reorderGRInstForDTV%s"%tc]:
+#        idx_tmp = idx % tP["nrc"]
+#        idx = (idx >> (tP["nrc"] - 1)) + (idx_tmp) * tP["nrp"]
+#        print("after idx = ", idx)
 
       for perp in range(perpStart, perpEnd):
         for sPerp in range(sPerpStart, sPerpEnd):
