@@ -73,6 +73,11 @@ namespace rocisa
                                                  bool               isMacro = false)
     {
         RegName regname = generateRegName(name);
+	int int_regNum = static_cast<int>(regNum);
+// 	printf("createGPR start\n");
+//         printf("name = %s\n", name.c_str());
+//         printf("regNum = %f\n", regNum);
+// 	printf("isMacro = %d\n", static_cast<int>(isMacro));
         return std::make_shared<RegisterContainer>(gprType, regname, isMacro, -1, regNum);
     }
 
@@ -90,6 +95,9 @@ namespace rocisa
     std::shared_ptr<RegisterContainer>
         vgpr(const std::string& name, float regNum = 1.f, bool isMacro = false)
     {
+//	printf("createGPR here\n");
+//        printf("name = %s\n", name.c_str());
+//	printf("regNum = %f\n", regNum);
         return createGPR("v", name, regNum, isMacro);
     }
 

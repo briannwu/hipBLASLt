@@ -27,7 +27,7 @@ from rocisa.code import KernelBody, Label, Macro, Module, RegSet, SrdUpperValue,
                         StructuredModule, TextBlock, ValueEndif, ValueIf, ValueSet, SignatureBase
 from rocisa.container import DSModifiers, SDWAModifiers, VOP3PModifiers, \
                       MUBUFModifiers, SMEMModifiers, EXEC, VCC, RegisterContainer, \
-                      DPPModifiers, Holder, vgpr, sgpr, accvgpr, mgpr, HWRegContainer
+                      DPPModifiers, Holder, vgpr, sgpr, accvgpr, mgpr, HWRegContainer, FLATModifiers
 from rocisa.enum import InstType
 from rocisa.label import LabelManager
 from . import CUSTOM_KERNEL_PATH
@@ -450,10 +450,10 @@ class KernelWriterAssembly(KernelWriter):
     #self.sgprIdx = roundUpToNearestMultiple(self.sgprIdx,align)
     #print (name, "->", self.sgprIdx, "+", numSgprs)
     self.sgprs[name] = sgprIdx
-
     return sgprIdx
 
   def defineSgpr(self, name, numSgprs, align=1):
+    if numSgprs == 0: return
     return RegSet("s", "sgpr"+name, self.defineSgprIdx(name, numSgprs, align))
 
   def defineMultiSgprIndex(self, names: List[str], numSgprs: List[int], align=1):
@@ -514,9 +514,11 @@ class KernelWriterAssembly(KernelWriter):
     module.add(self.defineSgpr("WrapUB", 2))  # Bytes to add to SrdB to reset address from N-1 iter to AddressB
     if kernel["ProblemType"]["Sparse"]:
       module.add(self.defineSgpr("WrapUMetadata", 2))  # Bytes to add to SrdMetadata to reset address from N-1 iter to AddressMetadata
-
-    module.add(self.defineSgpr("GlobalReadIncsA", self.states.a.numSgprGlobalReadIncs))
-    module.add(self.defineSgpr("GlobalReadIncsB", self.states.b.numSgprGlobalReadIncs))
+#    print("ready GlobalReadIncsA")
+#    module.add(self.defineSgpr("GlobalReadIncsA", self.states.a.numSgprGlobalReadIncs))
+#    print("ready GlobalReadIncsB")
+#    module.add(self.defineSgpr("GlobalReadIncsB", self.states.b.numSgprGlobalReadIncs))
+#    print("DONE")
     if kernel["ProblemType"]["Sparse"] and not kernel["DirectToVgprSparseMetadata"]:
       module.add(self.defineSgpr("GlobalReadIncsMetadata", self.states.m.numSgprGlobalReadIncs))
 
@@ -2328,6 +2330,35 @@ class KernelWriterAssembly(KernelWriter):
     module = Module("graTileAssignment")
     tc = tP["tensorChar"]
     tReg =  tP["gpr"]["lwoT"]
+
+    if 1:  #if tP["grcg"]:
+      if 1:  #if tP["grcv"]:
+        divisorName = tP["lvc"]
+#      else:
+#        # Fractional load use the more accurate lsc, multiply by VW later
+#        divisorName = tP["lsc"]
+#    else:
+#      if tP["grcv"]:
+#        divisorName = tP["lsp"]
+#      else:
+#        divisorName = tP["lvp"]
+    divisor = kernel[divisorName]
+
+    if tP["tlu"] and (not tP["isSwizzled"]):
+#      rReg = self.vgprPool.checkOut(1, "lwaTA rReg0", self.states.preventVgprOverflowDuringNewTile) # tile = serial%divisor
+#      qReg = self.vgprPool.checkOut(1, "lwaTA qReg0", self.states.preventVgprOverflowDuringNewTile) # unroll = serial/divisor
+#      tReg = rReg
+#      uReg = qReg
+      tOpStr = "%"
+      uOpStr = "/"
+    else:
+#      qReg = self.vgprPool.checkOut(1, 'lwaTA qReg1', self.states.preventVgprOverflowDuringNewTile) # tile = serial/divisor
+#      rReg = self.vgprPool.checkOut(1, 'lwaTA rReg1', self.states.preventVgprOverflowDuringNewTile) # unroll = serial%divisor
+#      tReg = qReg
+#      uReg = rReg
+      tOpStr = "/"
+      uOpStr = "%"
+
 
     module.addComment0("graTileAssignment%s = %s" % (tc, vgpr(tReg)))
 
@@ -7909,10 +7940,10 @@ class KernelWriterAssembly(KernelWriter):
         module.add(SMovB32(dst=mgpr(0), src=hex(kernel["LdsNumBytes"]), \
             comment="Restore LDS clamp at %u bytes HERE"%(kernel["LdsNumBytes"])))
 
-      if not kernel["BufferLoad"]:
-        self.vgprPool.checkIn(maxAddrVgpr)
-        self.vgprPool.checkIn(bpeVgpr)
-        self.vgprPool.checkIn(zeroVgpr)
+    if not kernel["BufferLoad"]:
+      self.vgprPool.checkIn(maxAddrVgpr)
+      self.vgprPool.checkIn(bpeVgpr)
+      self.vgprPool.checkIn(zeroVgpr)
 
     if doTailOpt == 2:
       return module, loadCnt, vgprList, directToLdsLoads
@@ -11672,6 +11703,7 @@ class KernelWriterAssembly(KernelWriter):
 
       # Nested buffer load implementation function for easy branching for soffset
       def bufferLoadImpl(soffset):
+        print("bpl == ", bpl)
         nonlocal rv
         factor = max(1, 4//bpl)
         dst = None if lds else vgpr(destVgpr, rpv*factor)

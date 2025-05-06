@@ -1950,7 +1950,7 @@ class KernelWriter(metaclass=abc.ABCMeta):
           module.add(self.openLoop(kernel, tensorParametersA, tensorParametersB, i))
       module.add(self.calculateLoopNumIter(kernel, tensorParametersA, tensorParametersB, self.states.unrollIdx))
 
-    if not forceNoTileCode:
+    if not forceNoTileCode and 0:  # disable when StaggerU is not supported
       module.add(self.declareStaggerParms(kernel))
       module.add(self.calculateStagger(kernel, tensorParametersA))
       if kernel["ProblemType"]["Sparse"] and not kernel["DirectToVgprSparseMetadata"]:
@@ -2945,7 +2945,7 @@ class KernelWriter(metaclass=abc.ABCMeta):
       module.add(moduleMacroG2lVgpr)
 
       module.add(self.calculateLoopNumIter(kernel, tensorParametersA, tensorParametersB, -1))
-      if self.states.actualSummationLoops==1:
+      if self.states.actualSummationLoops==1 and 0:  # Disable if StaggerU not supported
         module.addComment1("remove stagger offsets for tail loop")
         module.add(self.removeStagger(kernel, tensorParametersA))
         module.add(self.removeStagger(kernel, tensorParametersB))

@@ -1511,7 +1511,8 @@ class StreamKOff(StreamK):
     def graAddresses(self, writer, kernel, tP, vTmp):
         module = Module("StreamK Off graAddresses")
 
-        tc = tP["tensorChar"]
+        #tc = tP["tensorChar"]
+        tc = tP
         module.add(VMovB32(dst=vgpr(vTmp+0), src=sgpr("Address%s+0" % tc)))
         module.add(VMovB32(dst=vgpr(vTmp+1), src=sgpr("Address%s+1" % tc)))
 
