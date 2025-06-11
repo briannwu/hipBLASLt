@@ -161,9 +161,9 @@ globalParameters["CSVMergeSameProblemID"] = False
 #       For A, B, C, D: All the InitMode (0~16) can be used
 #       For Alpha/Beta: Only problem-independent init (0~7, 16, 23~26) can be used,
 #                       problem-dependent init (8~15) would cause a exception (Invalid InitMode) in New Client
-globalParameters["DataInitTypeAB"] = 3
-globalParameters["DataInitTypeA"] = -1
-globalParameters["DataInitTypeB"] = -1
+globalParameters["DataInitTypeAB"] = 23
+globalParameters["DataInitTypeA"] = 23
+globalParameters["DataInitTypeB"] = 24
 globalParameters["DataInitTypeC"] = 3
 globalParameters["DataInitTypeD"] = 0
 globalParameters["DataInitTypeE"] = 0
@@ -628,8 +628,12 @@ def assignGlobalParameters(config, isaInfoMap: Dict[IsaVersion, IsaInfo]):
         value = config[key]
         if key not in globalParameters:
             printWarning("Global parameter %s = %s unrecognised." % (key, value))
-        globalParameters[key] = value
-
+    globalParameters[key] = value
+#    globalParameters["DataInitTypeA"] = 23
+#    globalParameters["DataInitTypeB"] = 24
+#    globalParameters["DataInitTypeAB"] = 23
+    globalParameters["NumWarmups"] = 0
+    globalParameters["EnqueuesPerSync"] = 1
 
 def setupRestoreClocks():
     import atexit

@@ -5009,6 +5009,8 @@ class KernelWriterAssembly(KernelWriter):
 
     if doA:
       imod.add(checkAOOBLabel)
+      imod.add(SCmpGtU32(src0=sgpr("SizeL"), src1=1, comment="L > 1 ?"))
+      imod.add(SCBranchSCC1(labelName=skipLabel.getLabelName(), comment="Skip OOB check"))
       imod.add(SCmpEQU32(src0=sgpr(tmpSgpr4), src1=0, comment=""))
       imod.add(SCMovB32(sgpr(tmpSgprQregA), nlpA * nlcA))
       if not doB:
@@ -5083,6 +5085,8 @@ class KernelWriterAssembly(KernelWriter):
 
     if doB:
       imod.add(checkBOOBLabel)
+      imod.add(SCmpGtU32(src0=sgpr("SizeL"), src1=1, comment="L > 1 ?"))
+      imod.add(SCBranchSCC1(labelName=skipLabel.getLabelName(), comment="Skip OOB check"))
       imod.add(SCmpEQU32(src0=sgpr(tmpSgpr4), src1=0, comment=""))
       imod.add(SCMovB32(sgpr(tmpSgprQregB), nlpB * nlcB))
       imod.add(SAddU32(sgpr(tmpSgpr4), sgpr(tmpSgpr4), 1))

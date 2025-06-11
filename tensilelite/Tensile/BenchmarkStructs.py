@@ -36,7 +36,7 @@ from Tensile.SolutionStructs.Problem import ProblemType
 from .CustomKernels import getAllCustomKernelNames
 from .SolutionStructs import ProblemSizes, ActivationArgs, BiasTypeArgs, \
         FactorDimArgs
-
+import random
 
 def getDefaultsForMissingParameters(paramList, defaultParams):
     """Returns all parameters (with values) in defaultParams not present in paramList"""
@@ -134,6 +134,8 @@ class BenchmarkProcess:
                 for x in getNonNoneFromConfig("BenchmarkCommonParameters", [])]))
         forkParams = dict(itertools.chain(*[x.items() \
                 for x in getNonNoneFromConfig("ForkParameters", [])]))
+        forkParams["WaveSeparateGlobalReadA"] = [0,1,2]
+        forkParams["WaveSeparateGlobalReadB"] = [0,1,2]
         self.paramGroups = forkParams.pop("Groups") if "Groups" in forkParams else []
         self.customKernels = getNonNoneFromConfig("CustomKernels", [])
         self.internalSupportParams = getNonNoneFromConfig("InternalSupportParams", {})
@@ -146,6 +148,22 @@ class BenchmarkProcess:
         icacheFlush = None
         if "BenchmarkFinalParameters" in config:
             sizes          = config["BenchmarkFinalParameters"][0]["ProblemSizes"]
+            if "MatrixInstruction" in forkParams:
+              for mi in forkParams["MatrixInstruction"]:
+                MT0 = mi[0] * mi[5] * mi[7]
+                MT1 = mi[1] * mi[6] * mi[8]
+                for m_cnt in range(2):
+                  for n_cnt in range(2):
+                    m = random.randrange(1, 33)
+                    n = random.randrange(1, 33)
+                    for k in range(1, 17):
+                      sizes.append({'Exact': [m, n, 1, k]})
+                for m_cnt in range(3):
+                  for n_cnt in range(3):
+                    m = random.randrange(1, MT0)
+                    n = random.randrange(1, MT1)
+                    for k in range(1, 17):
+                      sizes.append({'Exact': [m, n, 1, k]})
             for bfp in config["BenchmarkFinalParameters"][1:]:
                 if "ActivationArgs" in bfp:
                   if activationConf:
