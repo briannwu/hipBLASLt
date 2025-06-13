@@ -4770,7 +4770,8 @@ class KernelWriterAssembly(KernelWriter):
     imod = Module("tailLoopGlobalRead")
 
     tagList = ["AddressA", "AddressB", "WrapUA", "WrapUB", "StaggerU", "WGM", \
-               "StaggerUIter", "GlobalReadIncsA", "GlobalReadIncsB"]
+               "StaggerUIter", "GlobalReadIncsA", "GlobalReadIncsB", \
+               "sgprStridesA", "sgprStridesB", "sgprShadowLimitA", "sgprShadowLimitB"]
     lastRegTag = None
     spool = self.sgprPool.getPool()
     for i in range(0, self.sgprPool.size()):
@@ -4787,12 +4788,10 @@ class KernelWriterAssembly(KernelWriter):
     mergeALabel = Label(label="MergeA", comment="")
     mergeBLabel = Label(label="MergeB", comment="")
     skipLabel   = Label(label="TailGlobalLoadEnd", comment="")
-    checkAOOBLabel = Label(label="CheckA_OOB", comment="")
-    checkALoopBeginLabel = Label(label="CheckLoopBeginA", comment="")
-    checkALabel = Label(label="CheckA", comment="")
-    checkBOOBLabel = Label(label="CheckB_OOB", comment="")
-    checkBLoopBeginLabel = Label(label="CheckLoopBeginB", comment="")
-    checkBLabel = Label(label="CheckB", comment="")
+    checkOtherLoadALabel = Label(label="CheckOtherLoadA", comment="")
+    checkAddrALabel = Label(label="CheckAddrA", comment="")
+    checkOtherLoadBLabel = Label(label="CheckOtherLoadB", comment="")
+    checkAddrBLabel = Label(label="CheckAddrB", comment="")
     lspA = kernel[tPA["lsp"]]
     lscA = kernel[tPA["lsc"]]
     lspB = kernel[tPB["lsp"]]
@@ -4867,84 +4866,109 @@ class KernelWriterAssembly(KernelWriter):
 
       func(numTiles - 1, behavior, jumpLabel, tileSgpr, kSgpr)
 
-    tmpSgprA1 = self.sgprPool.checkOut(1, preventOverflow=False)
-    tmpSgprB1 = self.sgprPool.checkOut(1, preventOverflow=False)
-    tmpSgprA2 = self.sgprPool.checkOut(1, preventOverflow=False)
-    tmpSgprB2 = self.sgprPool.checkOut(1, preventOverflow=False)
-    tmpSgpr = self.sgprPool.checkOutAligned(2, 2, preventOverflow=False)
-    tmpSgprQregA = self.sgprPool.checkOut(1, preventOverflow=False)
-    tmpSgprQregB = self.sgprPool.checkOut(1, preventOverflow=False)
-    tmpSgprKA = self.sgprPool.checkOut(1, preventOverflow=False)
-    tmpSgprKB = self.sgprPool.checkOut(1, preventOverflow=False)
-    tmpSgpr4 = self.sgprPool.checkOut(1, preventOverflow=False)
-    tmpSgpr5 = self.sgprPool.checkOut(1, preventOverflow=False)
-    tmpSgpr7 = self.sgprPool.checkOutAligned(2, 2, preventOverflow=False)
-    tmpSgprValidBytesA = self.sgprPool.checkOut(1, preventOverflow=False)
-    tmpSgprValidBytesB = self.sgprPool.checkOut(1, preventOverflow=False)
-    loopIdx = self.states.unrollIdx
+    numSingleSgpr = 10
+    numPairSgpr = 2
+    singSgprList = []  # store single sgpr
+    pairSgprList = []  # store aligned2 sgpr
 
+    for num in range(numSingleSgpr):
+      tmpSgpr = self.sgprPool.checkOut(1, preventOverflow=False)
+      singSgprList.append(tmpSgpr)
+    for num in range(numPairSgpr):
+      tmpSgpr = self.sgprPool.checkOutAligned(2, 2, preventOverflow=False)
+      pairSgprList.append(tmpSgpr)
+#
+#    tmpSgprA1 = singSgprList[0]
+#    tmpSgprB1 = singSgprList[1]
+#    tmpSgprA2 = singSgprList[2]
+#    tmpSgprB2 = singSgprList[3]
+#    tmpSgprQregA = singSgprList[4]
+#    tmpSgprQregB = singSgprList[5]
+#    tmpSgprKA = singSgprList[6]
+#    tmpSgprKB = singSgprList[7]
+#    tmpSgprValidBytesA = singSgprList[8]
+#    tmpSgprValidBytesB = singSgprList[9]
+#    tmpSgpr4 = singSgprList[10]
+#    tmpSgpr = pairSgprList[0]
+#    tmpSgpr7 = pairSgprList[1]
+    loopIdx = self.states.unrollIdx
+#
+#    tmpSgprQregA = singSgprList[0]
+#    tmpSgprQregB = singSgprList[1]
+#    tmpSgprKA = singSgprList[2]
+#    tmpSgprKB = singSgprList[3]
+#    tmpSgprA1 = singSgprList[4]
+#    tmpSgprB1 = singSgprList[5]
+#    tmpSgprA2 = singSgprList[6]
+#    tmpSgprValidBytesA = singSgprList[7]
+#    tmpSgprValidBytesB = singSgprList[8]
+#    tmpSgpr4 = singSgprList[9]
+#    tmpSgpr = pairSgprList[0]
+#    tmpSgpr7 = pairSgprList[1]
+#
     # for A
     if doA:
-      imod.add(SAndB32(dst=sgpr(tmpSgprA1), src0=sgpr("SizeL"), src1=(kernel["DepthU"] - 1)))
-      imod.add(SMulI32(dst=sgpr(tmpSgprValidBytesA), src0=sgpr("SizeI"), src1=sgpr(tmpSgprA1), comment="Calculate total valid elements number"))
-      imod.add(SMulI32(dst=sgpr(tmpSgprValidBytesA), src0=sgpr(tmpSgprValidBytesA), src1=tPA["bpeGR"], comment="Total valid bytes"))
+      imod.add(SAndB32(dst=sgpr(singSgprList[4]), src0=sgpr("SizeL"), src1=(kernel["DepthU"] - 1)))
+      imod.add(SMulI32(dst=sgpr(singSgprList[7]), src0=sgpr("SizeI"), src1=sgpr(singSgprList[4]), comment="Calculate total valid elements number"))
+      imod.add(SMulI32(dst=sgpr(singSgprList[7]), src0=sgpr(singSgprList[7]), src1=tPA["bpeGR"], comment="Total valid bytes"))
 
       if (kernel["WaveSeparateGlobalReadA"] == 0):
-        tmpSgprA = tmpSgprQregA
+        tmpSgpr = singSgprList[0]
       else:
-        tmpSgprA = tmpSgprA2
-      imod.add(SSubU32(dst=sgpr(tmpSgprA1), src0=sgpr("SizeI"), src1=1))
-      imod.add(scalarStaticDivideAndRemainder(tmpSgprA, tmpSgprA, tmpSgprA1, \
+        tmpSgpr = singSgprList[6]
+      imod.add(SSubU32(dst=sgpr(singSgprList[4]), src0=sgpr("SizeI"), src1=1))
+      imod.add(scalarStaticDivideAndRemainder(tmpSgpr, tmpSgpr, singSgprList[4], \
                                               kernel["MacroTile0"], \
-                                              ContinuousRegister(tmpSgpr, 2), 1))
+                                              ContinuousRegister(pairSgprList[0], 2), 1))
       if (kernel["WaveSeparateGlobalReadA"] > 0):
-        imod.add(scalarStaticDivideAndRemainder(tmpSgprQregA, tmpSgprQregA, tmpSgprA, \
+        imod.add(scalarStaticDivideAndRemainder(singSgprList[0], singSgprList[0], tmpSgpr, \
                                                 (nlpA * lspA), \
-                                                ContinuousRegister(tmpSgpr, 2), 1))
-      imod.add(SLShiftRightB32(dst=sgpr(tmpSgprQregA), shiftHex=hex(log2(lspA)), \
-                               src=sgpr(tmpSgprQregA), comment="divide lsp"))
-      imod.add(SMulI32(dst=sgpr(tmpSgprQregA), src0=sgpr(tmpSgprQregA), src1=nlcA, comment=""))
-      imod.add(SLShiftRightB32(dst=sgpr(tmpSgpr), shiftHex=hex(log2(lscA)), \
+                                                ContinuousRegister(pairSgprList[0], 2), 1))
+      imod.add(SLShiftRightB32(dst=sgpr(singSgprList[0]), shiftHex=hex(log2(lspA)), \
+                               src=sgpr(singSgprList[0]), comment="divide lsp"))
+      imod.add(SMulI32(dst=sgpr(singSgprList[0]), src0=sgpr(singSgprList[0]), src1=nlcA, comment=""))
+      imod.add(SLShiftRightB32(dst=sgpr(pairSgprList[0]), shiftHex=hex(log2(lscA)), \
                                src=sgpr("LoopCounterL"), comment=""))
-      imod.add(SAddI32(dst=sgpr(tmpSgprQregA), src0=sgpr(tmpSgprQregA), src1=sgpr(tmpSgpr), comment=""))
-      imod.add(scalarStaticDivideAndRemainder(tmpSgpr, tmpSgprA1, "SizesSum+%u"%loopIdx, \
-                                              kernel["DepthU"], ContinuousRegister(tmpSgpr, 2), 2))
+      imod.add(SAddI32(dst=sgpr(singSgprList[0]), src0=sgpr(singSgprList[0]), src1=sgpr(pairSgprList[0]), comment=""))
+      imod.add(scalarStaticDivideAndRemainder(pairSgprList[0], singSgprList[4], "SizesSum+%u"%loopIdx, \
+                                              kernel["DepthU"], ContinuousRegister(pairSgprList[0], 2), 2))
     # for B
     if doB:
-      imod.add(SAndB32(dst=sgpr(tmpSgprB1), src0=sgpr("SizeL"), src1=(kernel["DepthU"] - 1)))
-      imod.add(SMulI32(dst=sgpr(tmpSgprValidBytesB), src0=sgpr("SizeJ"), src1=sgpr(tmpSgprB1), comment="Calculate total valid elements number"))
-      imod.add(SMulI32(dst=sgpr(tmpSgprValidBytesB), src0=sgpr(tmpSgprValidBytesB), src1=tPB["bpeGR"], comment="Total valid bytes"))
+      imod.add(SAndB32(dst=sgpr(singSgprList[5]), src0=sgpr("SizeL"), src1=(kernel["DepthU"] - 1)))
+      imod.add(SMulI32(dst=sgpr(singSgprList[8]), src0=sgpr("SizeJ"), src1=sgpr(singSgprList[5]), comment="Calculate total valid elements number"))
+      imod.add(SMulI32(dst=sgpr(singSgprList[8]), src0=sgpr(singSgprList[8]), src1=tPB["bpeGR"], comment="Total valid bytes"))
       if (kernel["WaveSeparateGlobalReadB"] == 0):
-        tmpSgprB = tmpSgprQregB
+        tmpSgpr = singSgprList[1]
       else:
-        tmpSgprB = tmpSgprB2
-      imod.add(SSubU32(dst=sgpr(tmpSgprB1), src0=sgpr("SizeJ"), src1=1))
-      imod.add(scalarStaticDivideAndRemainder(tmpSgprB, tmpSgprB, tmpSgprB1, \
+        #tmpSgpr = tmpSgpr2
+        tmpSgpr = singSgprList[9]
+      imod.add(SSubU32(dst=sgpr(singSgprList[5]), src0=sgpr("SizeJ"), src1=1))
+      imod.add(scalarStaticDivideAndRemainder(tmpSgpr, tmpSgpr, singSgprList[5], \
                                               kernel["MacroTile1"], \
-                                              ContinuousRegister(tmpSgpr, 2), 1))
+                                              ContinuousRegister(pairSgprList[0], 2), 1))
       if (kernel["WaveSeparateGlobalReadB"] > 0):
-        imod.add(scalarStaticDivideAndRemainder(tmpSgprQregB, tmpSgprQregB, tmpSgprB, \
+        imod.add(scalarStaticDivideAndRemainder(singSgprList[1], singSgprList[1], tmpSgpr, \
                                                (nlpB * lspB), \
-                                               ContinuousRegister(tmpSgpr, 2), 1))
-      imod.add(SLShiftRightB32(dst=sgpr(tmpSgprQregB), shiftHex=hex(log2(lspB)), \
-                               src=sgpr(tmpSgprQregB), comment="divide lsp"))
-      imod.add(SMulI32(dst=sgpr(tmpSgprQregB), src0=sgpr(tmpSgprQregB), src1=nlcB, comment=""))
-      imod.add(SLShiftRightB32(dst=sgpr(tmpSgpr), shiftHex=hex(log2(lscB)), \
+                                               ContinuousRegister(pairSgprList[0], 2), 1))
+      imod.add(SLShiftRightB32(dst=sgpr(singSgprList[1]), shiftHex=hex(log2(lspB)), \
+                               src=sgpr(singSgprList[1]), comment="divide lsp"))
+      imod.add(SMulI32(dst=sgpr(singSgprList[1]), src0=sgpr(singSgprList[1]), src1=nlcB, comment=""))
+      imod.add(SLShiftRightB32(dst=sgpr(pairSgprList[0]), shiftHex=hex(log2(lscB)), \
                                src=sgpr("LoopCounterL"), comment=""))
-      imod.add(SAddI32(dst=sgpr(tmpSgprQregB), src0=sgpr(tmpSgprQregB), src1=sgpr(tmpSgpr), comment=""))
-      imod.add(scalarStaticDivideAndRemainder(tmpSgpr, tmpSgprB1, "SizesSum+%u"%loopIdx, \
-                                              kernel["DepthU"], ContinuousRegister(tmpSgpr, 2), 2))
+      imod.add(SAddI32(dst=sgpr(singSgprList[1]), src0=sgpr(singSgprList[1]), src1=sgpr(pairSgprList[0]), comment=""))
+      imod.add(scalarStaticDivideAndRemainder(pairSgprList[0], singSgprList[5], "SizesSum+%u"%loopIdx, \
+                                              kernel["DepthU"], ContinuousRegister(pairSgprList[0], 2), 2))
     # A
     if doA:
-      imod.add(SAndB32(dst=sgpr(tmpSgprA1), src0=sgpr(tmpSgprA1), src1=(tPA["glvw"] - 1), \
+      imod.add(SAndB32(dst=sgpr(singSgprList[4]), src0=sgpr(singSgprList[4]), src1=(tPA["glvw"] - 1), \
                        comment="s[sgprLoopCounterL] % glvw"))
-      imod.add(SAndB32(dst=sgpr(tmpSgprKA), src0=sgpr(tmpSgprA1), src1=hex(maxNumOOBElementsA), \
+      imod.add(SAndB32(dst=sgpr(singSgprList[2]), src0=sgpr(singSgprList[4]), src1=hex(maxNumOOBElementsA), \
                        comment=" % numElementsPer4Bytes"))
     # B
     if doB:
-      imod.add(SAndB32(dst=sgpr(tmpSgprB1), src0=sgpr(tmpSgprB1), src1=(tPB["glvw"] - 1), \
+      imod.add(SAndB32(dst=sgpr(singSgprList[5]), src0=sgpr(singSgprList[5]), src1=(tPB["glvw"] - 1), \
                        comment="s[sgprLoopCounterL] % glvw"))
-      imod.add(SAndB32(dst=sgpr(tmpSgprKB), src0=sgpr(tmpSgprB1), src1=hex(maxNumOOBElementsB), \
+      imod.add(SAndB32(dst=sgpr(singSgprList[3]), src0=sgpr(singSgprList[5]), src1=hex(maxNumOOBElementsB), \
                        comment=" % numElementsPer4Bytes"))
     #########################################################################################################
     numDwordA = (tPA["glvw"] * tPA["bpeGR"]) >> 2
@@ -4953,49 +4977,61 @@ class KernelWriterAssembly(KernelWriter):
     numDwordB = 1 if numDwordB == 0 else numDwordB
     numTmpVgpr = maxNumOOBElementsA * numDwordA + maxNumOOBElementsB * numDwordB # 2 fo 16b
 
+    sSkipLoadA = singSgprList[2]
+    sSkipLoadB = singSgprList[3]
+    sLoadNumA = singSgprList[4]
+    sLoadNumB = singSgprList[5]
+    sLoadTileIdxA = singSgprList[0]
+    sLoadTileIdxB = singSgprList[1]
+    sValidBytesA = singSgprList[7]
+    sValidBytesB = singSgprList[8]
+    sCmpLoadStartAddrStatusx2 = pairSgprList[0]
+    sCmpLoadEndAddrStatusx2 = pairSgprList[1]
+    sLoadCnt = singSgprList[9]
+    sBackupSkipLoadB = singSgprList[6]
     if doA or doB:
       tmpVgpr = self.vgprPool.checkOut(numTmpVgpr)
-      imod.add(SMovB32(sgpr(tmpSgpr4), 0, comment="Set loop count = 0"))
+      imod.add(SMovB32(sgpr(sLoadCnt), 0, comment="Set loop count = 0"))
       if doA and doB:
-        imod.add(SMovB32(sgpr(tmpSgpr5), sgpr(tmpSgprKB), comment="Backup and will be restored in label_CheckB_OOB"))
+        imod.add(SMovB32(sgpr(sBackupSkipLoadB), sgpr(sSkipLoadB), comment="Backup and will be restored in label_CheckB_OOB"))
 
     # A
     if doA:
       imod.add(loadALabel)
-      imod.add(SCmpEQU32(src0=sgpr(tmpSgprKA), src1=0, \
+      imod.add(SCmpEQU32(src0=sgpr(sSkipLoadA), src1=0, \
                          comment="Valid loading size per thread is multiples of 4 bytes"))
       if doB:
         imod.add(SCBranchSCC1(labelName=loadBLabel.getLabelName(), comment="Skip loading A"))
-        LOAD_FUNC(tPA, tmpVgpr, "LOAD", loadBLabel, tmpSgprQregA, tmpSgprA1)
+        LOAD_FUNC(tPA, tmpVgpr, "LOAD", loadBLabel, sLoadTileIdxA, sLoadNumA)
       else:
         imod.add(SCBranchSCC1(labelName=mergeALabel.getLabelName(), comment="Skip loading A"))
-        LOAD_FUNC(tPA, tmpVgpr, "LOAD", mergeALabel, tmpSgprQregA, tmpSgprA1)
+        LOAD_FUNC(tPA, tmpVgpr, "LOAD", mergeALabel, sLoadTileIdxA, sLoadNumA)
 
     # B
     if doB:
       imod.add(loadBLabel)
-      imod.add(SCmpEQU32(src0=sgpr(tmpSgprKB), src1=0, \
+      imod.add(SCmpEQU32(src0=sgpr(sSkipLoadB), src1=0, \
                          comment="Valid loading size per thread is multiples of 4 bytes"))
       if doA:
         imod.add(SCBranchSCC1(labelName=mergeALabel.getLabelName(), comment="Skip loading B"))
         LOAD_FUNC(tPB, tmpVgpr + (maxNumOOBElementsA * numDwordA), "LOAD", mergeALabel, \
-                  tmpSgprQregB, tmpSgprB1)
+                  sLoadTileIdxB, sLoadNumB)
       else:
         imod.add(SCBranchSCC1(labelName=mergeBLabel.getLabelName(), comment="Skip loading B"))
         LOAD_FUNC(tPB, tmpVgpr + (maxNumOOBElementsA * numDwordA), "LOAD", mergeBLabel, \
-                  tmpSgprQregB, tmpSgprB1)
+                  sLoadTileIdxB, sLoadNumB)
     # A
     if doA:
       imod.add(mergeALabel)
       if numElementsPerLoadA != 2:
-        imod.add(SCmpEQU32(src0=sgpr(tmpSgprKA), src1=0, \
+        imod.add(SCmpEQU32(src0=sgpr(sSkipLoadA), src1=0, \
                            comment="Valid loading size per thread is multiples of 4 bytes"))
         if doB:
           imod.add(SCBranchSCC1(labelName=mergeBLabel.getLabelName(), comment="Skip mergeing A"))
-          LOAD_FUNC(tPA, tmpVgpr, "MERGE", mergeBLabel, tmpSgprQregA, tmpSgprA1)
+          LOAD_FUNC(tPA, tmpVgpr, "MERGE", mergeBLabel, sLoadTileIdxA, sLoadNumA)
         else:
-          imod.add(SCBranchSCC1(labelName=checkAOOBLabel.getLabelName(), comment="Skip mergeing A"))
-          LOAD_FUNC(tPA, tmpVgpr, "MERGE", checkAOOBLabel, tmpSgprQregA, tmpSgprA1)
+          imod.add(SCBranchSCC1(labelName=checkOtherLoadALabel.getLabelName(), comment="Skip mergeing A"))
+          LOAD_FUNC(tPA, tmpVgpr, "MERGE", checkOtherLoadALabel, sLoadTileIdxA, sLoadNumA)
 
       if doB and kernel["DirectToLds%s"%tPA["tensorChar"]]:
         imod.add(SMovB32(dst=mgpr(0), src=hex(kernel["LdsNumBytes"]), \
@@ -5008,17 +5044,17 @@ class KernelWriterAssembly(KernelWriter):
           imod.add(SMovB32(dst=mgpr(0), src=hex(kernel["LdsNumBytes"]), \
               comment="Restore LDS clamp at %u bytes HERE"%(kernel["LdsNumBytes"])))
 
-        imod.add(SCmpEQU32(src0=sgpr(tmpSgprKB), src1=0, \
+        imod.add(SCmpEQU32(src0=sgpr(sSkipLoadB), src1=0, \
                            comment="Valid loading size per thread is multiples of 4 bytes"))
 
         if doA:
-          imod.add(SCBranchSCC1(labelName=checkAOOBLabel.getLabelName(), comment="Skip mergeing B"))
-          LOAD_FUNC(tPB, tmpVgpr + (maxNumOOBElementsA * numDwordA), "MERGE", checkAOOBLabel, \
-                    tmpSgprQregB, tmpSgprB1)
+          imod.add(SCBranchSCC1(labelName=checkOtherLoadALabel.getLabelName(), comment="Skip mergeing B"))
+          LOAD_FUNC(tPB, tmpVgpr + (maxNumOOBElementsA * numDwordA), "MERGE", checkOtherLoadALabel, \
+                    sLoadTileIdxB, sLoadNumB)
         else:
-          imod.add(SCBranchSCC1(labelName=checkBOOBLabel.getLabelName(), comment="Skip mergeing B"))
-          LOAD_FUNC(tPB, tmpVgpr + (maxNumOOBElementsA * numDwordA), "MERGE", checkBOOBLabel, \
-                    tmpSgprQregB, tmpSgprB1)
+          imod.add(SCBranchSCC1(labelName=checkOtherLoadBLabel.getLabelName(), comment="Skip mergeing B"))
+          LOAD_FUNC(tPB, tmpVgpr + (maxNumOOBElementsA * numDwordA), "MERGE", checkOtherLoadBLabel, \
+                    sLoadTileIdxB, sLoadNumB)
 
     def JumpLabel(tP, tmpSgpr, jumpLabel):
       tc = tP["tensorChar"]
@@ -5043,81 +5079,73 @@ class KernelWriterAssembly(KernelWriter):
             addrbase = self._shared_state.b.addrVgpr[idx]
             offset = self._shared_state.b.offset[idx]
           if kernel["_UseSgprForGRO"]:
-#            if offset == "0":
-#              imod.add(VAddU32(dst=vgpr(tmpVgpr), src0=vgpr(addrbase), src1=int(offset)))
-#            else:
             imod.add(VAddU32(dst=vgpr(tmpVgpr), src0=vgpr(addrbase), src1=offset)) 
           else:
             imod.add(VMovB32(dst=vgpr(tmpVgpr), src=vgpr(addrbase)))
-          imod.add(SBranch(labelName=jumpLabel.getLabelName(), comment="Jump to label_Check"+tc))
+          if idx != (numTiles - 1):
+            imod.add(SBranch(labelName=jumpLabel.getLabelName(), comment=""))
       func(numTiles - 1, tmpSgpr)
 
     if doA:
-      imod.add(checkAOOBLabel)
-      imod.add(SCmpEQU32(src0=sgpr(tmpSgprKA), src1=0, comment="Noneed to load single element fo A?"))
+      imod.add(checkOtherLoadALabel)
+      imod.add(SCmpEQU32(src0=sgpr(sSkipLoadA), src1=0, comment="Noneed to load single element fo A?"))
       if doB:
-        imod.add(SCBranchSCC1(labelName=checkBOOBLabel.getLabelName(), comment="Jump to label_CheckB_OOB"))
+        imod.add(SCBranchSCC1(labelName=checkOtherLoadBLabel.getLabelName(), comment="Jump to label_CheckB_OOB"))
       else:
         imod.add(SCBranchSCC1(labelName=skipLabel.getLabelName(), comment="Jump to label_TailGlobalLoadEnd"))
-      imod.add(SAddU32(sgpr(tmpSgpr4), sgpr(tmpSgpr4), 1))
-      imod.add(checkALoopBeginLabel)
-      imod.add(SCmpEQU32(src0=sgpr(tmpSgpr4), src1=(nlpA * nlcA), comment="Have reloaded all subtiles?"))
+      imod.add(SAddU32(sgpr(sLoadCnt), sgpr(sLoadCnt), 1))
+#      imod.add(checkALoopBeginLabel)
+      imod.add(SCmpEQU32(src0=sgpr(sLoadCnt), src1=(nlpA * nlcA), comment="Have reloaded all subtiles?"))
       if doB:
-        imod.add(SCMovB32(dst=sgpr(tmpSgpr4), src=0, comment="Reset loop count"))
-        imod.add(SCBranchSCC1(labelName=checkBOOBLabel.getLabelName(), comment="Jump to label_CheckB_OOB"))
+        imod.add(SCMovB32(dst=sgpr(sLoadCnt), src=0, comment="Reset loop count"))
+        imod.add(SCBranchSCC1(labelName=checkOtherLoadBLabel.getLabelName(), comment="Jump to label_CheckB_OOB"))
       else:
         imod.add(SCBranchSCC1(labelName=skipLabel.getLabelName(), comment="Jump to label_TailGlobalLoadEnd"))
-      imod.add(SSubI32(dst=sgpr(tmpSgprQregA), src0=sgpr(tmpSgprQregA), src1=1, comment="Check the upper subtile"))
-      imod.add(SCmpLtI32(src0=sgpr(tmpSgprQregA), src1=0, comment=""))
-      imod.add(SCMovB32(dst=sgpr(tmpSgprQregA), src=(nlpA * nlcA - 1), comment="If currently reload the first subtile, check the last subtile next."))
-      JumpLabel(tPA, tmpSgprQregA, checkALabel)
-      imod.add(checkALabel)
+      imod.add(SSubI32(dst=sgpr(sLoadTileIdxA), src0=sgpr(sLoadTileIdxA), src1=1, comment="Check the upper subtile"))
+      imod.add(SCmpLtI32(src0=sgpr(sLoadTileIdxA), src1=0, comment=""))
+      imod.add(SCMovB32(dst=sgpr(sLoadTileIdxA), src=(nlpA * nlcA - 1), comment="If currently reload the first subtile, check the last subtile next."))
+      JumpLabel(tPA, sLoadTileIdxA, checkAddrALabel)
+      imod.add(checkAddrALabel)
       imod.add(VSubU32(dst=vgpr(tmpVgpr), src0=vgpr(tmpVgpr), src1=self.states.srdShiftLeft["A"] * tPA["bpeGR"], comment="sub prepad"))
       loadRangePerThreadA = tPA["glvw"] * tPA["bpeGR"] - 1
       imod.add(VAddU32(dst=vgpr(tmpVgpr+1), src0=vgpr(tmpVgpr), src1=loadRangePerThreadA, comment="Calculate load range per thread"))
-#      tmp = tmpSgprA2
-#      imod.add(SMulI32(dst=sgpr(tmp), src0=sgpr("SizeI"), src1=sgpr("SizeL"), comment="Calculate total valid elements number"))
-#      imod.add(SMulI32(dst=sgpr(tmp), src0=sgpr(tmp), src1=tPA["bpeGR"], comment="Total valid bytes"))
-      imod.add(VCmpLtI32(dst=sgpr(tmpSgpr, 2), src0=vgpr(tmpVgpr), src1=sgpr(tmpSgprValidBytesA), comment="If loading start address < total valid bytes?"))
-      imod.add(VCmpGEI32(dst=sgpr(tmpSgpr7, 2), src0=vgpr(tmpVgpr+1), src1=sgpr(tmpSgprValidBytesA), comment="If loading end address >= total valid bytes?"))
-      imod.add(SAndB32(dst=sgpr(tmpSgpr), src0=sgpr(tmpSgpr), src1=sgpr(tmpSgpr7), comment="Find thread that access the last element"))
-      imod.add(SAndB32(dst=sgpr(tmpSgpr+1), src0=sgpr(tmpSgpr+1), src1=sgpr(tmpSgpr7+1), comment="Find thread that access the last element"))
-      imod.add(SAddU32(dst=sgpr(tmpSgpr), src0=sgpr(tmpSgpr), src1=sgpr(tmpSgpr+1), comment="Find thread that access the last element"))
-      imod.add(SCmpLgU32(src0=sgpr(tmpSgpr), src1=0, comment="Have threads access the last element?"))
+      imod.add(VCmpLtI32(dst=sgpr(sCmpLoadStartAddrStatusx2, 2), src0=vgpr(tmpVgpr), src1=sgpr(sValidBytesA), comment="If loading start address < total valid bytes?"))
+      imod.add(VCmpGEI32(dst=sgpr(sCmpLoadEndAddrStatusx2, 2), src0=vgpr(tmpVgpr+1), src1=sgpr(sValidBytesA), comment="If loading end address >= total valid bytes?"))
+      imod.add(SAndB32(dst=sgpr(sCmpLoadStartAddrStatusx2), src0=sgpr(sCmpLoadStartAddrStatusx2), src1=sgpr(sCmpLoadEndAddrStatusx2), comment="Find thread that access the last element"))
+      imod.add(SAndB32(dst=sgpr(sCmpLoadStartAddrStatusx2+1), src0=sgpr(sCmpLoadStartAddrStatusx2+1), src1=sgpr(sCmpLoadEndAddrStatusx2+1), comment="Find thread that access the last element"))
+      imod.add(SAddU32(dst=sgpr(sCmpLoadStartAddrStatusx2), src0=sgpr(sCmpLoadStartAddrStatusx2), src1=sgpr(sCmpLoadStartAddrStatusx2+1), comment="Find thread that access the last element"))
+      imod.add(SCmpLgU32(src0=sgpr(sCmpLoadStartAddrStatusx2), src1=0, comment="Have threads access the last element?"))
       if doB:
-        imod.add(SCMovB32(dst=sgpr(tmpSgprKB), src=0, comment="Skip reload B temporarily"))
-        imod.add(SCSelectB32(dst=sgpr(tmpSgpr4), src0=sgpr(tmpSgpr4), src1=0, comment="Reset loop count if needed"))
+        imod.add(SCMovB32(dst=sgpr(sSkipLoadB), src=0, comment="Skip reload B temporarily"))
+        imod.add(SCSelectB32(dst=sgpr(sLoadCnt), src0=sgpr(sLoadCnt), src1=0, comment="Reset loop count if needed"))
       imod.add(SCBranchSCC1(labelName=loadALabel.getLabelName(), comment="Reload A"))
 
     if doB:
-      imod.add(checkBOOBLabel)
+      imod.add(checkOtherLoadBLabel)
       if doA:
-        imod.add(SMovB32(dst=sgpr(tmpSgprKA), src=0, comment="Force to skip reload A"))
-        imod.add(SCmpEQU32(src0=sgpr(tmpSgpr4), src1=0, comment="Loop start?"))
-        imod.add(SCMovB32(dst=sgpr(tmpSgprKB), src=sgpr(tmpSgpr5), comment="Restore tmpSgprKB for B"))
-      imod.add(SCmpEQU32(src0=sgpr(tmpSgprKB), src1=0, comment="Noneed to load single element for B?"))
+        imod.add(SMovB32(dst=sgpr(sSkipLoadA), src=0, comment="Force to skip reload A"))
+        imod.add(SCmpEQU32(src0=sgpr(sLoadCnt), src1=0, comment="Loop start?"))
+        imod.add(SCMovB32(dst=sgpr(sSkipLoadB), src=sgpr(sBackupSkipLoadB), comment="Restore sSkipLoadB for B"))
+      imod.add(SCmpEQU32(src0=sgpr(sSkipLoadB), src1=0, comment="Noneed to load single element for B?"))
       imod.add(SCBranchSCC1(labelName=skipLabel.getLabelName(), comment="Jump to label_TailGlobalLoadEnd"))
-      imod.add(SAddU32(dst=sgpr(tmpSgpr4), src0=sgpr(tmpSgpr4), src1=1))
-      imod.add(checkBLoopBeginLabel)
-      imod.add(SCmpEQU32(src0=sgpr(tmpSgpr4), src1=(nlpB * nlcB), comment="Reload all subtiles?"))
+      imod.add(SAddU32(dst=sgpr(sLoadCnt), src0=sgpr(sLoadCnt), src1=1))
+#      imod.add(checkBLoopBeginLabel)
+      imod.add(SCmpEQU32(src0=sgpr(sLoadCnt), src1=(nlpB * nlcB), comment="Reload all subtiles?"))
       imod.add(SCBranchSCC1(labelName=skipLabel.getLabelName(), comment="jump to TailGlobalLoadEnd"))
-      imod.add(SSubI32(dst=sgpr(tmpSgprQregB), src0=sgpr(tmpSgprQregB), src1=1))
-      imod.add(SCmpLtI32(src0=sgpr(tmpSgprQregB), src1=0, comment=""))
-      imod.add(SCMovB32(dst=sgpr(tmpSgprQregB), src=(nlpB * nlcB - 1), comment="If currently reload the first subtile, check the last subtile next."))
-      JumpLabel(tPB, tmpSgprQregB, checkBLabel)
-      imod.add(checkBLabel)
+      imod.add(SSubI32(dst=sgpr(sLoadTileIdxB), src0=sgpr(sLoadTileIdxB), src1=1))
+      imod.add(SCmpLtI32(src0=sgpr(sLoadTileIdxB), src1=0, comment=""))
+      imod.add(SCMovB32(dst=sgpr(sLoadTileIdxB), src=(nlpB * nlcB - 1), comment="If currently reload the first subtile, check the last subtile next."))
+      JumpLabel(tPB, sLoadTileIdxB, checkAddrBLabel)
+      imod.add(checkAddrBLabel)
       imod.add(VSubU32(dst=vgpr(tmpVgpr), src0=vgpr(tmpVgpr), src1=self.states.srdShiftLeft["B"] * tPA["bpeGR"], comment="sub prepad"))
       loadRangePerThreadB = tPB["glvw"] * tPB["bpeGR"] - 1
       imod.add(VAddU32(dst=vgpr(tmpVgpr+1), src0=vgpr(tmpVgpr), src1=loadRangePerThreadB))
-#      tmp = tmpSgprA2
-#      imod.add(SMulI32(dst=sgpr(tmp), src0=sgpr("SizeJ"), src1=sgpr("SizeL")))
-#      imod.add(SMulI32(dst=sgpr(tmp), src0=sgpr(tmp), src1=tPB["bpeGR"]))
-      imod.add(VCmpLtI32(dst=sgpr(tmpSgpr, 2), src0=vgpr(tmpVgpr), src1=sgpr(tmpSgprValidBytesB), comment=""))
-      imod.add(VCmpGEI32(dst=sgpr(tmpSgpr7, 2), src0=vgpr(tmpVgpr+1), src1=sgpr(tmpSgprValidBytesB), comment=""))
-      imod.add(SAndB32(dst=sgpr(tmpSgpr), src0=sgpr(tmpSgpr), src1=sgpr(tmpSgpr7)))
-      imod.add(SAndB32(dst=sgpr(tmpSgpr+1), src0=sgpr(tmpSgpr+1), src1=sgpr(tmpSgpr7+1)))
-      imod.add(SAddU32(dst=sgpr(tmpSgpr), src0=sgpr(tmpSgpr), src1=sgpr(tmpSgpr+1)))
-      imod.add(SCmpLgU32(src0=sgpr(tmpSgpr), src1=0, comment="Have threads access out of range data?"))
+      imod.add(VCmpLtI32(dst=sgpr(sCmpLoadStartAddrStatusx2, 2), src0=vgpr(tmpVgpr), src1=sgpr(sValidBytesB), comment=""))
+      imod.add(VCmpGEI32(dst=sgpr(sCmpLoadEndAddrStatusx2, 2), src0=vgpr(tmpVgpr+1), src1=sgpr(sValidBytesB), comment=""))
+      imod.add(SAndB32(dst=sgpr(sCmpLoadStartAddrStatusx2), src0=sgpr(sCmpLoadStartAddrStatusx2), src1=sgpr(sCmpLoadEndAddrStatusx2)))
+      imod.add(SAndB32(dst=sgpr(sCmpLoadStartAddrStatusx2+1), src0=sgpr(sCmpLoadStartAddrStatusx2+1), src1=sgpr(sCmpLoadEndAddrStatusx2+1)))
+      imod.add(SAddU32(dst=sgpr(sCmpLoadStartAddrStatusx2), src0=sgpr(sCmpLoadStartAddrStatusx2), src1=sgpr(sCmpLoadStartAddrStatusx2+1)))
+      imod.add(SCmpLgU32(src0=sgpr(sCmpLoadStartAddrStatusx2), src1=0, comment="Have threads access out of range data?"))
       imod.add(SCBranchSCC1(labelName=loadBLabel.getLabelName(), comment="Reload B"))
 
     imod.add(skipLabel)
@@ -5131,24 +5159,28 @@ class KernelWriterAssembly(KernelWriter):
 
     if doA or doB:
       self.vgprPool.checkIn(tmpVgpr)
-    self.sgprPool.checkIn(tmpSgprA1)
-    self.sgprPool.checkIn(tmpSgprB1)
-    self.sgprPool.checkIn(tmpSgprA2)
-    self.sgprPool.checkIn(tmpSgprB2)
-    self.sgprPool.checkIn(tmpSgpr)
-    self.sgprPool.checkIn(tmpSgprQregA)
-    self.sgprPool.checkIn(tmpSgprQregB)
-    self.sgprPool.checkIn(tmpSgprKA)
-    self.sgprPool.checkIn(tmpSgprKB)
+    for s in singSgprList:
+      self.sgprPool.checkIn(s)
+    for s in pairSgprList:
+      self.sgprPool.checkIn(s)
+#    self.sgprPool.checkIn(tmpSgprA1)
+#    self.sgprPool.checkIn(tmpSgprB1)
+#    self.sgprPool.checkIn(tmpSgprA2)
+#    self.sgprPool.checkIn(tmpSgprB2)
+#    self.sgprPool.checkIn(tmpSgpr)
+#    self.sgprPool.checkIn(tmpSgprQregA)
+#    self.sgprPool.checkIn(tmpSgprQregB)
+#    self.sgprPool.checkIn(tmpSgprKA)
+#    self.sgprPool.checkIn(tmpSgprKB)
 #    self.sgprPool.checkIn(tmpSgpr1)
 #    self.sgprPool.checkIn(tmpSgpr2)
 #    self.sgprPool.checkIn(tmpSgpr3)
-    self.sgprPool.checkIn(tmpSgpr4)
-    self.sgprPool.checkIn(tmpSgpr5)
+#    self.sgprPool.checkIn(tmpSgpr4)
+#    self.sgprPool.checkIn(tmpSgpr5)
 #    self.sgprPool.checkIn(tmpSgpr6)
-    self.sgprPool.checkIn(tmpSgpr7)
-    self.sgprPool.checkIn(tmpSgprValidBytesA)
-    self.sgprPool.checkIn(tmpSgprValidBytesB)
+#    self.sgprPool.checkIn(tmpSgpr7)
+#    self.sgprPool.checkIn(tmpSgprValidBytesA)
+#    self.sgprPool.checkIn(tmpSgprValidBytesB)
 
     return imod
 
