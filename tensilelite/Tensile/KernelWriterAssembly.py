@@ -5223,7 +5223,7 @@ class KernelWriterAssembly(KernelWriter):
       # At the beginning of the loop, jump to the next step if:
       #   no need to reload (sSkipLoadA/B == 0) or
       #   sLoadCnt == total number of global load subtiles.
-      # Increase sLoadCnt in every loop.
+      # Increase sLoadCnt nlc in every loop.
       # For generating for loop B:
       #   LoopA/B share the same sgpr to record the load cnt. Reset it at the beginning of loop B.
       #   Force sSkipLoadB to be 0 to skip reload B when reload A. Reset it at the beginning of loop B.
@@ -5233,8 +5233,8 @@ class KernelWriterAssembly(KernelWriter):
           imod.add(SCBranchSCC1(labelName=checkOtherLoadBLabel.getLabelName(), comment="Jump to label_CheckB_OOB"))
         else:
           imod.add(SCBranchSCC1(labelName=skipLabel.getLabelName(), comment="Jump to label_TailGlobalLoadEnd"))
-        imod.add(SAddU32(sgpr(sLoadCnt), sgpr(sLoadCnt), 1))
-        imod.add(SCmpEQU32(src0=sgpr(sLoadCnt), src1=(nlpA * nlcA), comment="Have reloaded all subtiles?"))
+        imod.add(SAddU32(sgpr(sLoadCnt), sgpr(sLoadCnt), nlc))
+        imod.add(SCmpEQU32(src0=sgpr(sLoadCnt), src1=(nlp * nlc), comment="Have reloaded all subtiles?"))
         if doB:
           imod.add(SCMovB32(dst=sgpr(sLoadCnt), src=0, comment="Reset loop count"))
           imod.add(SCBranchSCC1(labelName=checkOtherLoadBLabel.getLabelName(), comment="Jump to label_CheckB_OOB"))
@@ -5247,15 +5247,19 @@ class KernelWriterAssembly(KernelWriter):
           imod.add(SCMovB32(dst=sgpr(sSkipLoadB), src=sgpr(sBackupSkipLoadB), comment="Restore sSkipLoadB for B"))
         imod.add(SCmpEQU32(src0=sgpr(sSkipLoadB), src1=0, comment="Noneed to load single element for B?"))
         imod.add(SCBranchSCC1(labelName=skipLabel.getLabelName(), comment="Jump to label_TailGlobalLoadEnd"))
-        imod.add(SAddU32(sgpr(sLoadCnt), sgpr(sLoadCnt), 1))
-        imod.add(SCmpEQU32(src0=sgpr(sLoadCnt), src1=(nlpB * nlcB), comment="Have reloaded all subtiles?"))
+        imod.add(SAddU32(sgpr(sLoadCnt), sgpr(sLoadCnt), nlc))
+        imod.add(SCmpEQU32(src0=sgpr(sLoadCnt), src1=(nlp * nlc), comment="Have reloaded all subtiles?"))
         imod.add(SCBranchSCC1(labelName=skipLabel.getLabelName(), comment="jump to TailGlobalLoadEnd"))
 
-      imod.add(SSubI32(dst=sgpr(sLoadTileIdx), src0=sgpr(sLoadTileIdx), src1=1, \
+      imod.add(SSubI32(dst=sgpr(sLoadTileIdx), src0=sgpr(sLoadTileIdx), src1=nlc, \
                        comment="Check the upper subtile"))
       imod.add(SCmpLtI32(src0=sgpr(sLoadTileIdx), src1=0, comment=""))
-      imod.add(SCMovB32(dst=sgpr(sLoadTileIdx), src=(nlp * nlc - 1), \
-                        comment="If currently reload the first subtile, check the last subtile next."))
+      imod.add(SCSelectB32(dst=sgpr(sCmpLoadStartAddrStatusx2), src0=(nlp * nlc), src1=0, \
+                           comment="Back to the last subtile"))
+      imod.add(SAddI32(dst=sgpr(sLoadTileIdx), src0= sgpr(sLoadTileIdx), src1=sgpr(sCmpLoadStartAddrStatusx2), \
+                      comment="If currently reload the first subtile, check the last subtile next."))
+#      imod.add(SCMovB32(dst=sgpr(sLoadTileIdx), src=(nlp * nlc - 1), \
+#                        comment="If currently reload the first subtile, check the last subtile next."))
       JumpLabel(tP, sLoadTileIdx, checkAddrLabel)
       imod.add(checkAddrLabel)
       imod.add(VSubU32(dst=vgpr(tmpVgpr), src0=vgpr(tmpVgpr), src1=self.states.srdShiftLeft[tc] * tP["bpeGR"], \
